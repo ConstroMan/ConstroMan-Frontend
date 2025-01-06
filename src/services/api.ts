@@ -491,3 +491,65 @@ export interface DashboardLayout {
   maxH?: number;
   static?: boolean;
 }
+
+// Get user settings
+export const getUserSettings = async (): Promise<UserSettings> => {
+  try {
+    console.log('Calling getUserSettings API...');
+    const response = await api.get('/api/user/settings');
+    console.log('getUserSettings response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('getUserSettings error:', error);
+    throw error;
+  }
+};
+
+// Get payment information
+export const getPaymentInfo = async (): Promise<PaymentInfo> => {
+  try {
+    console.log('Calling getPaymentInfo API...');
+    const response = await api.get('/api/user/payment');
+    console.log('getPaymentInfo response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('getPaymentInfo error:', error);
+    throw error;
+  }
+};
+
+export interface UserSettings {
+  email: string;
+  display_name: string;
+  notifications_enabled: boolean;
+  theme_preference: 'light' | 'dark';
+}
+
+export interface PaymentInfo {
+  last4: string;
+  expiry_month: number;
+  expiry_year: number;
+  brand: string;
+}
+
+export const updateUserSettings = async (updates: Partial<UserSettings>): Promise<UserSettings> => {
+  try {
+    const response = await api.patch('/api/user/settings', updates);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Add this new function
+export const changePassword = async (currentPassword: string, newPassword: string) => {
+  try {
+    const response = await api.post('/api/user/settings/password', {
+      current_password: currentPassword,
+      new_password: newPassword
+    });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};

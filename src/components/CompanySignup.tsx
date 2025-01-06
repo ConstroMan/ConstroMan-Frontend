@@ -7,40 +7,32 @@ import { companySignup } from '../services/api.ts'
 import { Sun, Moon } from 'lucide-react'
 import { Theme, themes } from '../utils/theme'
 import { useTheme } from '../contexts/ThemeContext';
+import { useToast } from '../contexts/ToastContext';
+import { ERROR_MESSAGES } from '../constants/errorMessages';
 
 export const CompanySignup: React.FC = () => {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
   const { currentTheme, setCurrentTheme } = useTheme();
   const themeStyles = themes[currentTheme]
   const navigate = useNavigate()
+  const { showToast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
     
     if (!name.trim()) {
-      setError('Company name is required.')
-      return
+      showToast('Company name is required', 'error');
+      return;
     }
 
     try {
-      const response = await companySignup({
-        name,
-        email,
-        password
-      })
-      console.log('Company signup successful:', response)
-      navigate('/company-login')
-    } catch (err) {
-      console.error('Company signup error:', err)
-      if (err.response?.data?.message) {
-        setError(err.response.data.message)
-      } else {
-        setError('Signup failed. Please try again.')
-      }
+      await companySignup({ name, email, password });
+      showToast('Registration successful! Please log in.', 'success');
+      navigate('/company-login');
+    } catch (err: any) {
+      showToast(err.message || ERROR_MESSAGES.VALIDATION_ERROR, 'error');
     }
   }
 
@@ -98,8 +90,6 @@ export const CompanySignup: React.FC = () => {
             Sign up your company for ConstroMan
           </p>
         </div>
-        
-        {error && <p className="text-red-500 text-center">{error}</p>}
         
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
           <div className="space-y-4">

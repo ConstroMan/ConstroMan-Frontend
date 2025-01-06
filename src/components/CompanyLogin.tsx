@@ -7,6 +7,8 @@ import { companyLogin } from '../services/api.ts'
 import { Sun, Moon } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext';
 import { themes } from '../utils/theme.ts'
+import { useToast } from '../contexts/ToastContext';
+import { ERROR_MESSAGES } from '../constants/errorMessages';
 
 export const CompanyLogin: React.FC = () => {
   const [email, setEmail] = useState('')
@@ -15,6 +17,7 @@ export const CompanyLogin: React.FC = () => {
   const { currentTheme, setCurrentTheme } = useTheme();
   const themeStyles = themes[currentTheme]
   const navigate = useNavigate()
+  const { showToast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,17 +25,12 @@ export const CompanyLogin: React.FC = () => {
 
     try {
       const response = await companyLogin(email, password)
-      console.log('Company login successful:', response)
       localStorage.setItem('token', response.token)
       localStorage.setItem('userType', 'company')
+      showToast('Successfully logged in', 'success')
       navigate('/projects')
-    } catch (err) {
-      console.error('Company login error:', err)
-      if (err.response?.data?.message) {
-        setError(err.response.data.message)
-      } else {
-        setError('Invalid email or password')
-      }
+    } catch (err: any) {
+      showToast(err.message || ERROR_MESSAGES.UNAUTHORIZED, 'error')
     }
   }
 

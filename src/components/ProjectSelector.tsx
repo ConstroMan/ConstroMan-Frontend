@@ -8,6 +8,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Theme, themes } from '../utils/theme';
 import { Dialog } from './ui/Dialog'
 import { useTheme } from '../contexts/ThemeContext';
+import { useToast } from '../contexts/ToastContext';
+import { NavBar } from './NavBar';
 
 interface Project {
   id: string;
@@ -33,6 +35,7 @@ export function ProjectSelector() {
   const navigate = useNavigate();
   const [error, setError] = useState<string>('');
   const [isAddProjectDialogOpen, setIsAddProjectDialogOpen] = useState(false)
+  const { showToast } = useToast();
 
   useEffect(() => {
     const storedUserType = localStorage.getItem('userType') as 'company' | 'employee' | null;
@@ -44,16 +47,33 @@ export function ProjectSelector() {
 
   const fetchProjects = async () => {
     try {
+      setIsLoading(true);
       const fetchedProjects = await getProjects();
       setProjects(fetchedProjects);
-    } catch (error) {
-      console.error('Error fetching projects:', error);
+    } catch (error: any) {
+      showToast(
+        error.message || 'Failed to fetch projects',
+        'error'
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleProjectSelect = (projectId: string) => {
-    setSelectedProject(projectId);
-    navigate(`/project/${projectId}`);
+  const handleProjectSelect = async (projectId: string) => {
+    try {
+      setIsLoading(true);
+      setSelectedProject(projectId);
+      showToast('Project selected successfully', 'success');
+      navigate(`/project/${projectId}`);
+    } catch (error: any) {
+      showToast(
+        error.message || 'Failed to select project',
+        'error'
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleNewProjectSubmit = async (e: React.FormEvent) => {
@@ -255,6 +275,8 @@ export function ProjectSelector() {
             </div>
           </div>
         )}
+
+        <NavBar />
       </motion.div>
     </AnimatePresence>
   );

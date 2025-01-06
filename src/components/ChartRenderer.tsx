@@ -5,6 +5,8 @@ import * as XLSX from 'xlsx';
 import html2canvas from 'html2canvas';
 import { Dashboard } from '../types/dashboard';
 import { useTheme } from '../contexts/ThemeContext';
+import { useToast } from '../contexts/ToastContext';
+import { ERROR_MESSAGES } from '../constants/errorMessages';
 
 interface ChartRendererProps {
   dashboard: Dashboard;
@@ -252,12 +254,23 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
   onResize 
 }) => {
   const { currentTheme } = useTheme();
+  const { showToast } = useToast();
   const isDarkMode = currentTheme === 'dark';
   const chartId = `chart-${dashboard.Name.replace(/\s+/g, '-')}`;
   const [isResizing, setIsResizing] = useState(false);
   const resizeTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const chartColors = useMemo(() => getChartColors(isDarkMode), [isDarkMode]);
   
+  if (!isValidDashboardData(dashboard)) {
+    showToast(ERROR_MESSAGES.VALIDATION_ERROR, 'error');
+    return null;
+  }
+
+  const handleChartError = (err: any) => {
+    showToast(ERROR_MESSAGES.SERVER_ERROR, 'error');
+    console.error('Chart rendering error:', err);
+  };
+
   // Debounced resize handler
   const handleResize = useCallback(() => {
     if (resizeTimeoutRef.current) {
@@ -494,7 +507,8 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
                     }}
                     options={{
                       ...chartOptions,
-                      cutout: '60%',
+                      scales: {},
+                      cutout: '70%',
                       plugins: {
                         ...chartOptions.plugins,
                         legend: {

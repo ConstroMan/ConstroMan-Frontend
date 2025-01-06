@@ -14,6 +14,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { Theme, themes } from '../utils/theme'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { ChartRenderer } from './ChartRenderer.tsx';
+import { NavBar } from './NavBar';
 
 interface ProjectFile {
   id: number;
@@ -547,6 +548,7 @@ export function ProjectDetails() {
             </TabsContent>
           </Tabs>
         </div>
+        <NavBar />
       </motion.div>
 
       <Dialog open={isUpdateFileDialogOpen} onOpenChange={setIsUpdateFileDialogOpen}>

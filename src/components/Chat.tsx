@@ -24,10 +24,9 @@ import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { useTheme } from '../contexts/ThemeContext';
 import './gridLayoutTheme.css'; // Add this import at the top
-import { Menu, Transition } from '@headlessui/react'
-import { Fragment } from 'react'
 import DashboardView from './DashboardView';
 import { ChartRenderer } from './ChartRenderer.tsx'
+import { NavBar } from './NavBar';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -1278,6 +1277,8 @@ export default function Chat() {
             />
           )}
         </AnimatePresence>
+
+        <NavBar />
       </motion.div>
     </AnimatePresence>
   );

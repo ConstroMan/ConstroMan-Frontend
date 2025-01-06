@@ -12,6 +12,9 @@ import { getProjectCharts, saveProjectChart, toggleChartPin, addChartToProjectDa
 import debounce from 'lodash/debounce';
 import { SaveLayoutDialog } from './SaveLayoutDialog';
 import { Button } from './ui/Button';
+import { useToast } from '../contexts/ToastContext';
+import { ERROR_MESSAGES } from '../constants/errorMessages';
+import { DashboardItem } from '../types/dashboard';
 
 const ResponsiveGridLayout = WidthProvider(Responsive) as unknown as React.ComponentType<{
   className: string;
@@ -44,13 +47,6 @@ type Dashboard = {
   Forecasted_X_axis_data?: string[];
   Forecasted_Y_axis_data?: number[];
   Y_axis_data_secondary?: number[];
-};
-
-type DashboardItem = {
-  id?: number;32
-  dashboardData: Dashboard;
-  query: string;
-  selected: boolean;
 };
 
 type SavedChart = {
@@ -96,6 +92,7 @@ export default function DashboardView({
   layouts,
   onLayoutChange 
 }: DashboardViewProps) {
+  const { showToast } = useToast();
   const [selectedDashboards, setSelectedDashboards] = useState<DashboardItem[]>(availableDashboards);
   const [selectedSavedCharts, setSelectedSavedCharts] = useState<SavedChart[]>([]);
   const [visibleCharts, setVisibleCharts] = useState<SavedChart[]>([]);
@@ -419,50 +416,42 @@ export default function DashboardView({
       setIsLoadingLayout(true);
       const layout = await loadDashboardLayout(Number(projectId), layoutId);
       
-      console.log('Loaded layout:', layout);
-
-      if (layout && layout.layout_data && layout.charts) {
-        // Set the charts first with their data for rendering
-        const chartsWithData = layout.charts.map(chart => ({
-          ...chart,
-          dashboardData: chart.chart_data,
-          selected: true  // Mark as selected to display
-        }));
-        
-        // Transform layout data and add missing properties
-        const gridLayouts = {
-          lg: layout.layout_data.lg.map((item, index) => ({
-            i: `chart-${item.chartId}`,
-            x: item.x || (index % 2) * 6,  // Default x position if missing
-            y: item.y || Math.floor(index / 2) * 4,  // Default y position if missing
-            w: item.w || 6,  // Default width if missing
-            h: item.h || 4,  // Default height if missing
-            minW: item.minW || 3,
-            minH: item.minH || 3
-          }))
-        };
-
-        console.log('Setting charts:', chartsWithData);
-        console.log('Setting layout:', gridLayouts);
-
-        // Update both states
-        setSelectedDashboards([]); // Clear existing dashboards
-        setVisibleCharts(chartsWithData);
-        onLayoutChange(gridLayouts);
-        
-        // Force rerender after a short delay
-        setTimeout(() => {
-          window.dispatchEvent(new Event('resize'));
-          const chartElements = document.querySelectorAll('[data-chart]');
-          chartElements.forEach(chart => {
-            (chart as any).__chartist?.update();
-          });
-        }, 100);
+      if (!layout?.layout_data || !layout?.charts) {
+        throw new Error(ERROR_MESSAGES.NOT_FOUND);
       }
+
+      // Set the saved charts
+      setSelectedSavedCharts(layout.charts);
+      
+      // Instead of clearing selectedDashboards, update their selected state
+      setSelectedDashboards(prev => prev.map(dashboard => ({
+        ...dashboard,
+        selected: false // Deselect all available dashboards when loading a saved layout
+      })));
+
+      // Transform layout data ensuring all required properties are present
+      const gridLayouts = {
+        lg: layout.layout_data.lg.map((item) => ({
+          i: `chart-${item.chartId}`,
+          x: Number(item.x) || 0,
+          y: Number(item.y) || 0,
+          w: Number(item.w) || 6,
+          h: Number(item.h) || 4,
+          minW: Number(item.minW) || 3,
+          minH: Number(item.minH) || 3
+        }))
+      };
+
+      console.log('Transformed layout:', gridLayouts);
+      
+      // Update layouts state
+      onLayoutChange(gridLayouts);
       
       setIsLayoutMenuOpen(false);
-    } catch (error) {
-      console.error('Error loading layout:', error);
+      showToast('Dashboard layout loaded successfully', 'success');
+    } catch (err: any) {
+      console.error('Error loading layout:', err);
+      showToast(err.message || ERROR_MESSAGES.SERVER_ERROR, 'error');
     } finally {
       setIsLoadingLayout(false);
     }
@@ -487,7 +476,7 @@ export default function DashboardView({
         stiffness: 200,
         damping: 40
       }}
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center"
     >
       <motion.div 
         initial={{ scale: 0.8, opacity: 0 }}
@@ -838,30 +827,76 @@ export default function DashboardView({
                 breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
                 cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
                 rowHeight={100}
-                onLayoutChange={debouncedLayoutChange}
+                onLayoutChange={(currentLayout, allLayouts) => {
+                  debouncedLayoutChange(currentLayout, allLayouts);
+                }}
                 isDraggable={true}
                 isResizable={true}
                 margin={[16, 16]}
                 containerPadding={[16, 16]}
               >
-                {visibleCharts.map((chart, index) => (
-                  <div 
-                    key={`chart-${chart.id}`}
-                    data-chart-container
-                    data-chart-id={`chart-${chart.id}`}
-                    className={`chart-wrapper ${currentTheme === 'light' ? 'bg-white' : 'bg-gray-900'}`}
-                  >
-                    <ChartRenderer
-                      dashboard={chart.chart_data}
-                      hideDownload={true}
-                      dimensions={{
-                        width: 100,
-                        height: 100
+                {/* Render saved charts */}
+                {selectedSavedCharts.map((chart) => {
+                  const key = `chart-${chart.id}`;
+                  // Find the layout item for this chart
+                  const layoutItem = layouts?.lg?.find(item => item.i === key);
+                  
+                  return (
+                    <div 
+                      key={key} 
+                      data-grid={{
+                        x: layoutItem?.x || 0,  // Use layout x or default to 0
+                        y: layoutItem?.y || 0,  // Use layout y or default to 0
+                        w: layoutItem?.w || 6,
+                        h: layoutItem?.h || 4,
+                        minW: layoutItem?.minW || 3,
+                        minH: layoutItem?.minH || 3,
+                        i: key
                       }}
-                      data-chart
-                    />
-                  </div>
-                ))}
+                    >
+                      <ChartRenderer
+                        dashboard={chart.chart_data}
+                        hideDownload={true}
+                        dimensions={{
+                          width: 100,
+                          height: 100
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+
+                {selectedDashboards
+                  .filter(dashboard => dashboard.selected)
+                  .map((dashboard) => {
+                    const key = `chart-${dashboard.dashboardData.Name.replace(/\s+/g, '-')}`;
+                    // Find the layout item for this dashboard
+                    const layoutItem = layouts?.lg?.find(item => item.i === key);
+                    
+                    return (
+                      <div 
+                        key={key} 
+                        data-grid={{
+                          x: layoutItem?.x || 0,  // Use layout x or default to 0
+                          y: layoutItem?.y || 0,  // Use layout y or default to 0
+                          w: layoutItem?.w || 6,
+                          h: layoutItem?.h || 4,
+                          minW: layoutItem?.minW || 3,
+                          minH: layoutItem?.minH || 3,
+                          i: key
+                        }}
+                      >
+                        <ChartRenderer
+                          dashboard={dashboard.dashboardData}
+                          hideDownload={true}
+                          dimensions={{
+                            width: 100,
+                            height: 100
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
               </ResponsiveGridLayout>
             </div>
           </div>

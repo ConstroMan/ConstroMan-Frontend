@@ -19,6 +19,8 @@ export interface ThemeStyles {
 
 export const themes: Record<Theme, ThemeStyles> = {
   light: {
+    accentBorder: 'border-gray-300',
+    accentText: 'text-gray-900',
     background: 'bg-[#E8E0D5]',
     cardBg: 'bg-white',
     text: 'text-gray-900',
@@ -33,6 +35,8 @@ export const themes: Record<Theme, ThemeStyles> = {
     shadowColor: 'shadow-gray-200'
   },
   dark: {
+    accentBorder: 'border-gray-700',
+    accentText: 'text-gray-200',
     background: 'bg-[#1a1a1a]',
     cardBg: 'bg-[#2A2A2A]',
     text: 'text-gray-200',
@@ -47,3 +51,7 @@ export const themes: Record<Theme, ThemeStyles> = {
     shadowColor: 'shadow-gray-900'
   }
 }; 
+
+export function getTextColor(currentTheme: string, lightColor: string, darkColor: string) {
+  return currentTheme === 'light' ? lightColor : darkColor;
+} 

@@ -1,7 +1,5 @@
 import React from 'react'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom'
-import { Login } from './components/Login.tsx'
-import { Signup } from './components/Signup.tsx'
 import { CompanyLogin } from './components/CompanyLogin.tsx'
 import { CompanySignup } from './components/CompanySignup.tsx'
 import { ProjectSelector } from './components/ProjectSelector.tsx'
@@ -10,10 +8,12 @@ import './index.css'
 import Chat from './components/Chat.tsx'
 import { AnimatePresence } from 'framer-motion';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { ToastProvider } from './contexts/ToastContext';
 
 const App: React.FC = () => {
   return (
     <ThemeProvider>
+        <ToastProvider>
       <AnimatePresence mode="wait">
         <Router>
           <div className="min-h-screen bg-gray-100">
@@ -28,6 +28,7 @@ const App: React.FC = () => {
           </div>
         </Router>
       </AnimatePresence>
+      </ToastProvider>
     </ThemeProvider>
   )
 }
