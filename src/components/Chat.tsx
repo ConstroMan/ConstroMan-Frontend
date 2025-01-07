@@ -1102,82 +1102,109 @@ export default function Chat() {
           </motion.div>
         </div>
 
-        {/* Vertical Navbar */}
-        <div className="absolute top-20 left-4 z-20 flex flex-col gap-2">
+        {/* Vertical Navbar - With tooltips */}
+        <div className={`absolute top-20 left-4 z-20 flex flex-col gap-2 rounded-full ${
+          currentTheme === 'light' ? 'bg-white' : 'bg-[#2A2A2A]'
+        } shadow-lg p-2`}>
           {/* Dashboard View Button */}
-          <motion.div
-            className={`rounded-full shadow-lg overflow-hidden ${
-              currentTheme === 'light' ? 'bg-white' : 'bg-[#2A2A2A]'
-            }`}
-          >
+          <div className="relative group">
             <button
-              data-dashboard-button
               onClick={() => setShowDashboardView(true)}
-              className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#323232]"
-              title="Open Dashboard View"
+              className={`w-10 h-10 flex items-center justify-center rounded-full ${
+                currentTheme === 'light' 
+                  ? 'hover:bg-gray-100' 
+                  : 'hover:bg-[#323232]'
+              } transition-colors`}
             >
               <LayoutDashboard className={`w-5 h-5 ${
                 currentTheme === 'light' ? 'text-gray-600' : 'text-gray-200'
               }`} />
             </button>
-          </motion.div>
+            <div className="absolute left-12 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className={`${
+                currentTheme === 'light' ? 'bg-white' : 'bg-[#2A2A2A]'
+              } rounded-lg shadow-lg px-3 py-1.5 whitespace-nowrap`}>
+                <span className={`${
+                  currentTheme === 'light' ? 'text-gray-600' : 'text-gray-200'
+                }`}>Dashboard View</span>
+              </div>
+            </div>
+          </div>
 
           {/* Saved Prompts Button */}
-          <motion.div
-            className={`rounded-full shadow-lg overflow-hidden ${
-              currentTheme === 'light' ? 'bg-white' : 'bg-[#2A2A2A]'
-            }`}
-          >
+          <div className="relative group">
             <button
               onClick={() => setIsSavedPromptsOpen(true)}
-              className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#323232]"
-              title="Saved Prompts"
+              className={`w-10 h-10 flex items-center justify-center rounded-full ${
+                currentTheme === 'light' 
+                  ? 'hover:bg-gray-100' 
+                  : 'hover:bg-[#323232]'
+              } transition-colors`}
             >
               <BookmarkCheck className={`w-5 h-5 ${
                 currentTheme === 'light' ? 'text-gray-600' : 'text-gray-200'
               }`} />
             </button>
-          </motion.div>
+            <div className="absolute left-12 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className={`${
+                currentTheme === 'light' ? 'bg-white' : 'bg-[#2A2A2A]'
+              } rounded-lg shadow-lg px-3 py-1.5 whitespace-nowrap`}>
+                <span className={`${
+                  currentTheme === 'light' ? 'text-gray-600' : 'text-gray-200'
+                }`}>Saved Prompts</span>
+              </div>
+            </div>
+          </div>
 
           {/* Theme Toggle Button */}
-          <motion.div 
-            className={`rounded-full shadow-lg overflow-hidden ${
-              currentTheme === 'light' ? 'bg-white' : 'bg-[#2A2A2A]'
-            }`}
-          >
+          <div className="relative group">
             <button
               onClick={() => setCurrentTheme(currentTheme === 'light' ? 'dark' : 'light')}
-              className="w-10 h-10 relative flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#323232]"
-              title={`Switch to ${currentTheme === 'light' ? 'dark' : 'light'} mode`}
+              className={`w-10 h-10 flex items-center justify-center rounded-full ${
+                currentTheme === 'light' 
+                  ? 'hover:bg-gray-100' 
+                  : 'hover:bg-[#323232]'
+              } transition-colors`}
             >
-              <motion.div
-                initial={false}
-                animate={{
-                  rotate: currentTheme === 'light' ? 0 : 180,
-                  scale: currentTheme === 'light' ? 1 : 0
-                }}
-                transition={{ duration: 0.3 }}
-                className="absolute"
-              >
-                <Sun className={`w-5 h-5 ${
-                  currentTheme === 'light' ? 'text-gray-600' : 'text-gray-200'
-                }`} />
-              </motion.div>
-              <motion.div
-                initial={false}
-                animate={{
-                  rotate: currentTheme === 'light' ? -180 : 0,
-                  scale: currentTheme === 'light' ? 0 : 1
-                }}
-                transition={{ duration: 0.3 }}
-                className="absolute"
-              >
-                <Moon className={`w-5 h-5 ${
-                  currentTheme === 'light' ? 'text-gray-600' : 'text-gray-200'
-                }`} />
-              </motion.div>
+              <div className="relative w-5 h-5">
+                <motion.div
+                  initial={false}
+                  animate={{
+                    rotate: currentTheme === 'light' ? 0 : 180,
+                    scale: currentTheme === 'light' ? 1 : 0
+                  }}
+                  transition={{ duration: 0.3 }}
+                  className="absolute inset-0"
+                >
+                  <Sun className={`w-5 h-5 ${
+                    currentTheme === 'light' ? 'text-gray-600' : 'text-gray-200'
+                  }`} />
+                </motion.div>
+                <motion.div
+                  initial={false}
+                  animate={{
+                    rotate: currentTheme === 'light' ? -180 : 0,
+                    scale: currentTheme === 'light' ? 0 : 1
+                  }}
+                  transition={{ duration: 0.3 }}
+                  className="absolute inset-0"
+                >
+                  <Moon className={`w-5 h-5 ${
+                    currentTheme === 'light' ? 'text-gray-600' : 'text-gray-200'
+                  }`} />
+                </motion.div>
+              </div>
             </button>
-          </motion.div>
+            <div className="absolute left-12 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className={`${
+                currentTheme === 'light' ? 'bg-white' : 'bg-[#2A2A2A]'
+              } rounded-lg shadow-lg px-3 py-1.5 whitespace-nowrap`}>
+                <span className={`${
+                  currentTheme === 'light' ? 'text-gray-600' : 'text-gray-200'
+                }`}>Switch to {currentTheme === 'light' ? 'dark' : 'light'} mode</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="flex-1 flex flex-col relative [&_*]:caret-transparent">
