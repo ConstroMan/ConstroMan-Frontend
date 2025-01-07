@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button } from "./ui/Button.tsx"
-import { Send, User, Atom, ArrowLeft, ChevronDown, LayoutDashboard, X, Plus, Minus, ChevronLeft, ChevronRight, Sun, Moon, Download, Save, Trash2, MoreVertical, ZoomIn, ZoomOut } from 'lucide-react'
+import { Send, User, Atom, ArrowLeft, ChevronDown, LayoutDashboard, X, Plus, Minus, ChevronLeft, ChevronRight, Sun, Moon, Download, Bookmark, Trash2, MoreVertical, ZoomIn, ZoomOut, Copy, BookmarkCheck } from 'lucide-react'
 import { motion, AnimatePresence} from 'framer-motion'
-import { saveProjectChart, getProjectCharts, sendMessage, SavedChart, deleteProjectChart } from '../services/api'
+import { saveProjectChart, getProjectCharts, sendMessage, SavedChart, deleteProjectChart, savePrompt, getSavedPrompts, SavedPrompt } from '../services/api'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -27,6 +27,8 @@ import './gridLayoutTheme.css'; // Add this import at the top
 import DashboardView from './DashboardView';
 import { ChartRenderer } from './ChartRenderer.tsx'
 import { NavBar } from './NavBar';
+import { Menu, Transition } from '@headlessui/react'
+import SavedPromptsDialog from './SavedPromptsDialog'
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -123,7 +125,7 @@ const formatMessage = (content: any) => {
 
   return {
     textContent: (
-      <div className="space-y-2 w-full">
+      <div className="space-y-2 w-full [caret-color:transparent]">
         {parsedContent.split('\n').map((line, index) => {
           if (!line.trim()) {
             return <div key={index} className="h-2" />;
@@ -1031,6 +1033,31 @@ export default function Chat() {
     return savedLayouts ? JSON.parse(savedLayouts) : {};
   });
 
+  const [savedPrompts, setSavedPrompts] = useState<Set<string>>(new Set());
+
+  const handleSavePrompt = async (content: string) => {
+    try {
+      await savePrompt({ 
+        content, 
+        project_id: Number(projectId)
+      });
+      setSavedPrompts(prev => new Set(prev).add(content));
+    } catch (error) {
+      console.error('Error saving prompt:', error);
+    }
+  }
+
+  const handleCopyPrompt = (content: string) => {
+    navigator.clipboard.writeText(content)
+  }
+
+  const [isSavedPromptsOpen, setIsSavedPromptsOpen] = useState(false)
+
+  const handleSelectPrompt = (prompt: SavedPrompt) => {
+    setInputMessage(prompt.content)
+    // Optionally, scroll to input or trigger sending automatically
+  }
+
   return (
     <AnimatePresence mode="wait">
       <motion.div
@@ -1038,7 +1065,7 @@ export default function Chat() {
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: 300 }}
         transition={{ type: "spring", stiffness: 260, damping: 20 }}
-        className="flex h-screen"
+        className="flex h-screen [&_*]:caret-transparent"
         style={{ 
           backgroundColor: themeStyles.background,
           backgroundImage: themeStyles.backgroundImage,
@@ -1046,7 +1073,8 @@ export default function Chat() {
           opacity: 0.98
         }}
       >
-        <div className="absolute top-4 left-4 z-20 flex gap-2">
+        {/* Back button */}
+        <div className="absolute top-4 left-4 z-20">
           <motion.div
             initial={{ width: 40 }}
             whileHover={{ width: 240 }}
@@ -1072,21 +1100,46 @@ export default function Chat() {
               }`}>Back to Project Dashboard</span>
             </button>
           </motion.div>
+        </div>
 
+        {/* Vertical Navbar */}
+        <div className="absolute top-20 left-4 z-20 flex flex-col gap-2">
+          {/* Dashboard View Button */}
           <motion.div
-            className="bg-white rounded-full shadow-lg overflow-hidden"
+            className={`rounded-full shadow-lg overflow-hidden ${
+              currentTheme === 'light' ? 'bg-white' : 'bg-[#2A2A2A]'
+            }`}
           >
             <button
               data-dashboard-button
               onClick={() => setShowDashboardView(true)}
-              className="w-10 h-10 flex items-center justify-center"
+              className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#323232]"
               title="Open Dashboard View"
             >
-              <LayoutDashboard className="w-5 h-5 text-gray-600" />
+              <LayoutDashboard className={`w-5 h-5 ${
+                currentTheme === 'light' ? 'text-gray-600' : 'text-gray-200'
+              }`} />
             </button>
           </motion.div>
 
-          {/* Add theme toggle button */}
+          {/* Saved Prompts Button */}
+          <motion.div
+            className={`rounded-full shadow-lg overflow-hidden ${
+              currentTheme === 'light' ? 'bg-white' : 'bg-[#2A2A2A]'
+            }`}
+          >
+            <button
+              onClick={() => setIsSavedPromptsOpen(true)}
+              className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#323232]"
+              title="Saved Prompts"
+            >
+              <BookmarkCheck className={`w-5 h-5 ${
+                currentTheme === 'light' ? 'text-gray-600' : 'text-gray-200'
+              }`} />
+            </button>
+          </motion.div>
+
+          {/* Theme Toggle Button */}
           <motion.div 
             className={`rounded-full shadow-lg overflow-hidden ${
               currentTheme === 'light' ? 'bg-white' : 'bg-[#2A2A2A]'
@@ -1094,7 +1147,7 @@ export default function Chat() {
           >
             <button
               onClick={() => setCurrentTheme(currentTheme === 'light' ? 'dark' : 'light')}
-              className="w-10 h-10 relative flex items-center justify-center"
+              className="w-10 h-10 relative flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#323232]"
               title={`Switch to ${currentTheme === 'light' ? 'dark' : 'light'} mode`}
             >
               <motion.div
@@ -1126,7 +1179,8 @@ export default function Chat() {
             </button>
           </motion.div>
         </div>
-        <div className="flex-1 flex flex-col relative">
+
+        <div className="flex-1 flex flex-col relative [&_*]:caret-transparent">
           <div className="flex-1 overflow-y-auto p-4">
             <div className="max-w-4xl mx-auto space-y-6 pt-6">
               {messages.map((message) => {
@@ -1137,7 +1191,7 @@ export default function Chat() {
                     key={message.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
+                    transition={{ duration: 0.3, type: "tween" }}
                     className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start w-full'}`}
                   >
                     {/* Message Bubble */}
@@ -1175,6 +1229,32 @@ export default function Chat() {
                         </div>
                       )}
                     </div>
+
+                    {/* Action Icons - Below Message */}
+                    {message.role === 'user' && !message.isLoading && (
+                      <div className="flex gap-2 mt-1 mr-12">
+                        <button
+                          onClick={() => handleCopyPrompt(message.content)}
+                          className="p-1 hover:bg-gray-700/10 rounded-full transition-colors"
+                          title="Copy message"
+                        >
+                          <Copy className="w-4 h-4 text-gray-400" />
+                        </button>
+                        <button
+                          onClick={() => handleSavePrompt(message.content)}
+                          className="p-1 hover:bg-gray-700/10 rounded-full transition-colors"
+                          title="Save prompt"
+                        >
+                          <Bookmark 
+                            className={`w-4 h-4 ${
+                              savedPrompts.has(message.content) 
+                                ? 'text-gray-400 fill-gray-400' 
+                                : 'text-gray-400'
+                            }`} 
+                          />
+                        </button>
+                      </div>
+                    )}
 
                     {formattedMessage.dashboards && formattedMessage.dashboards.length > 0 && (
   <div className="mt-10 w-full">
@@ -1246,6 +1326,7 @@ export default function Chat() {
                     : 'text-gray-200 placeholder-gray-400'
                 }`}
                 rows={1}
+                style={{ caretColor: 'black' }}
               />
               <Button
                 type="submit"
@@ -1279,6 +1360,14 @@ export default function Chat() {
         </AnimatePresence>
 
         <NavBar />
+
+        {/* Include the Saved Prompts Dialog */}
+        <SavedPromptsDialog
+          isOpen={isSavedPromptsOpen}
+          onClose={() => setIsSavedPromptsOpen(false)}
+          onSelectPrompt={handleSelectPrompt}
+          projectId={Number(projectId)}
+        />
       </motion.div>
     </AnimatePresence>
   );

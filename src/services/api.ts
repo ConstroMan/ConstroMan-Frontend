@@ -553,3 +553,46 @@ export const changePassword = async (currentPassword: string, newPassword: strin
     throw error;
   }
 };
+
+// Add these interfaces
+export interface SavedPrompt {
+  id: number;
+  content: string;
+  project_id: number;
+  tags?: string[];
+  created_at: string;
+}
+
+// Save a prompt
+export const savePrompt = async (promptData: { 
+  content: string; 
+  project_id: number;
+  tags?: string[] 
+}) => {
+  try {
+    const response = await api.post(`/api/projects/${promptData.project_id}/prompts`, promptData);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Get saved prompts
+export const getSavedPrompts = async (projectId: number) => {
+  try {
+    const response = await api.get(`/api/projects/${projectId}/prompts`);
+    return response.data as SavedPrompt[];
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Delete a saved prompt
+export const deleteSavedPrompt = async (projectId: number, promptId: number) => {
+  try {
+    const response = await api.delete(`/api/projects/${projectId}/prompts/${promptId}`);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
