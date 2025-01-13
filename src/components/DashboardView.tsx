@@ -8,7 +8,7 @@ import 'react-resizable/css/styles.css';
 import './gridLayoutTheme.css';
 import { ChartRenderer } from './ChartRenderer'; 
 import { DashboardLayout } from '../types/dashboard';
-import { getProjectCharts, saveProjectChart, toggleChartPin, addChartToProjectDashboard, getProjectDashboardCharts, saveDashboardLayout, getDashboardLayouts, loadDashboardLayout, DashboardLayoutConfig, DashboardLayoutItem } from '../services/api';
+import { getProjectCharts, saveProjectChart, toggleChartPin, addChartToProjectDashboard, getProjectDashboardCharts, saveDashboardLayout, getDashboardLayouts, loadDashboardLayout, DashboardLayoutConfig, DashboardLayoutItem, updateDashboardLayout } from '../services/api';
 import debounce from 'lodash/debounce';
 import { SaveLayoutDialog } from './SaveLayoutDialog';
 import { Button } from './ui/Button';
@@ -31,6 +31,8 @@ const ResponsiveGridLayout = WidthProvider(Responsive) as unknown as React.Compo
   useCSSTransforms?: boolean;
   transformScale?: number;
   style?: React.CSSProperties;
+  minW?: number;
+  minH?: number;
 }>;
 
 type Dashboard = {
@@ -84,6 +86,16 @@ type Layouts = {
   [P: string]: Layout[];
 };
 
+// Add new interfaces for tab management
+interface DashboardTab {
+  id: string;
+  name: string;
+  isEditing?: boolean;
+  selectedCharts: SavedChart[];
+  layout: Layouts;
+  layoutId?: number;        // Track which saved layout this tab is using
+  hasUnsavedChanges: boolean; // Track if there are unsaved changes
+}
 
 export default function DashboardView({ 
   projectId, 
@@ -117,7 +129,7 @@ export default function DashboardView({
       const selectedCount = selectedDashboards.filter(d => d.selected).length;
       const initialLayouts = {
         lg: Array.from({ length: selectedCount }, (_, i) => ({
-          i: i.toString(),
+          i: `chart-${i}`,
           x: (i % 2) * 6,
           y: Math.floor(i / 2) * 4,
           w: 6,
@@ -182,14 +194,40 @@ export default function DashboardView({
   };
 
   const toggleSavedChartSelection = (chart: SavedChart) => {
-    setSelectedSavedCharts(prev => {
-      const isSelected = prev.some(c => c.id === chart.id);
-      if (isSelected) {
-        return prev.filter(c => c.id !== chart.id);
-      } else {
-        return [...prev, chart];
+    setTabs(prev => prev.map(tab => {
+      if (tab.id === activeTabId) {
+        const isSelected = tab.selectedCharts.some(c => c.id === chart.id);
+        const newSelectedCharts = isSelected
+          ? tab.selectedCharts.filter(c => c.id !== chart.id)
+          : [...tab.selectedCharts, chart];
+        
+        let newLayout = { ...tab.layout };
+        if (!isSelected) {
+          newLayout.lg = [
+            ...(tab.layout.lg || []),
+            {
+              i: `chart-${chart.id}`,
+              x: (tab.layout.lg?.length || 0) % 2 * 6,
+              y: Math.floor((tab.layout.lg?.length || 0) / 2) * 4,
+              w: 6,
+              h: 4,
+              minW: 3,
+              minH: 3
+            }
+          ];
+        } else {
+          newLayout.lg = tab.layout.lg?.filter(item => item.i !== `chart-${chart.id}`) || [];
+        }
+
+        return {
+          ...tab,
+          selectedCharts: newSelectedCharts,
+          layout: newLayout,
+          hasUnsavedChanges: true
+        };
       }
-    });
+      return tab;
+    }));
   };
 
   useEffect(() => {
@@ -323,14 +361,12 @@ export default function DashboardView({
 
   // Add optimized chart rendering function
   const renderChart = useCallback((item: DashboardItem | SavedChart, index: number) => {
-    console.log('Rendering chart:', item); // Debug log
-    
-    const chartId = `chart-${(item as SavedChart).id || (item as DashboardItem).dashboardData.Name}`.replace(/\s+/g, '-');
+    const chartId = `chart-${(item as SavedChart).id || index}`;
     const chartData = (item as SavedChart).chart_data || (item as DashboardItem).dashboardData;
     
     return (
       <div 
-        key={index.toString()}
+        key={chartId}
         data-chart-container
         data-chart-id={chartId}
         className={`chart-wrapper ${currentTheme === 'light' ? 'bg-white' : 'bg-gray-900'}`}
@@ -346,7 +382,7 @@ export default function DashboardView({
         />
       </div>
     );
-  }, [currentTheme, visibleCharts]);
+  }, [currentTheme]);
 
   const [isSaveLayoutOpen, setIsSaveLayoutOpen] = useState(false);
   const [isLoadingLayout, setIsLoadingLayout] = useState(false);
@@ -367,14 +403,14 @@ export default function DashboardView({
   }, [projectId]);
 
   // Handle layout save
-  const handleSaveLayout = async (name: string) => {
+  const handleSaveLayout = async (name?: string) => {
     try {
       setIsLoadingLayout(true);
+      const activeTab = getActiveTab();
       
-      // Get current layout items with chartId
-      const layoutItems = layouts.lg.map(item => ({
+      const layoutItems = activeTab.layout.lg.map(item => ({
         i: item.i,
-        chartId: parseInt(item.i.replace('chart-', '')), // Add chartId
+        chartId: parseInt(item.i.replace('chart-', '')),
         x: item.x,
         y: item.y,
         w: item.w,
@@ -383,28 +419,36 @@ export default function DashboardView({
         minH: item.minH || 3
       }));
 
-      // Get charts data
-      const chartsData = savedCharts.filter(chart => 
-        layoutItems.some(item => item.chartId === chart.id)
-      );
-
       const layoutConfig = {
-        name,
+        name: name || activeTab.name,
         layout_data: {
           lg: layoutItems
         },
-        charts: chartsData
+        charts: activeTab.selectedCharts
       };
 
-      console.log('Saving layout:', layoutConfig);
-      await saveDashboardLayout(Number(projectId), layoutConfig);
+      if (activeTab?.layoutId) {
+        // Update existing layout
+        await updateDashboardLayout(Number(projectId), activeTab.layoutId, layoutConfig);
+      } else {
+        // Save as new layout
+        await saveDashboardLayout(Number(projectId), layoutConfig);
+      }
       
-      // Refresh saved layouts list
+      // Update tab state to reflect saved changes
+      setTabs(prev => prev.map(tab => 
+        tab.id === activeTabId
+          ? { ...tab, hasUnsavedChanges: false }
+          : tab
+      ));
+
       const updatedLayouts = await getDashboardLayouts(Number(projectId));
       setSavedLayouts(updatedLayouts);
       setIsSaveLayoutOpen(false);
+      showToast('Layout saved successfully', 'success');
     } catch (error) {
       console.error('Error saving layout:', error);
+      showToast('Failed to save layout', 'error');
     } finally {
       setIsLoadingLayout(false);
     }
@@ -413,6 +457,9 @@ export default function DashboardView({
   // Handle layout load
   const handleLoadLayout = async (layoutId: number) => {
     try {
+      console.log('Current activeTabId:', activeTabId);
+      console.log('Current tabs:', tabs);
+      
       setIsLoadingLayout(true);
       const layout = await loadDashboardLayout(Number(projectId), layoutId);
       
@@ -420,38 +467,271 @@ export default function DashboardView({
         throw new Error(ERROR_MESSAGES.NOT_FOUND);
       }
 
-      // Set the saved charts
-      setSelectedSavedCharts(layout.charts);
-      
-      // Instead of clearing selectedDashboards, update their selected state
-      setSelectedDashboards(prev => prev.map(dashboard => ({
-        ...dashboard,
-        selected: false // Deselect all available dashboards when loading a saved layout
-      })));
+      console.log('Loaded layout:', layout);
 
-      // Transform layout data ensuring all required properties are present
-      const gridLayouts = {
-        lg: layout.layout_data.lg.map((item) => ({
-          i: `chart-${item.chartId}`,
-          x: Number(item.x) || 0,
-          y: Number(item.y) || 0,
-          w: Number(item.w) || 6,
-          h: Number(item.h) || 4,
-          minW: Number(item.minW) || 3,
-          minH: Number(item.minH) || 3
-        }))
-      };
+      // Update the current tab
+      const updatedTabs = tabs.map(tab => 
+        tab.id === activeTabId
+          ? {
+              ...tab,
+              name: layout.name,
+              selectedCharts: layout.charts,
+              layout: {
+                lg: layout.layout_data.lg.map((item) => ({
+                  i: `chart-${item.chartId}`,
+                  x: Number(item.x) || 0,
+                  y: Number(item.y) || 0,
+                  w: Number(item.w) || 6,
+                  h: Number(item.h) || 4,
+                  minW: Number(item.minW) || 3,
+                  minH: Number(item.minH) || 3
+                }))
+              },
+              layoutId: layoutId,
+              hasUnsavedChanges: false
+            }
+          : tab
+      );
 
-      console.log('Transformed layout:', gridLayouts);
-      
-      // Update layouts state
-      onLayoutChange(gridLayouts);
-      
+      console.log('Updated tabs:', updatedTabs);
+      setTabs(updatedTabs);
+
       setIsLayoutMenuOpen(false);
       showToast('Dashboard layout loaded successfully', 'success');
     } catch (err: any) {
       console.error('Error loading layout:', err);
       showToast(err.message || ERROR_MESSAGES.SERVER_ERROR, 'error');
+    } finally {
+      setIsLoadingLayout(false);
+    }
+  };
+
+  // State for managing tabs and their associated layouts
+  const [tabs, setTabs] = useState<DashboardTab[]>(() => {
+    const savedTabs = localStorage.getItem('dashboardTabs');
+    return savedTabs ? JSON.parse(savedTabs) : [{
+      id: 'default',
+      name: 'Default Layout',
+      selectedCharts: [],
+      layout: { lg: [] },
+      hasUnsavedChanges: false
+    }];
+  });
+
+  const [activeTabId, setActiveTabId] = useState(() => {
+    return localStorage.getItem('dashboardActiveTab') || 'default';
+  });
+
+  // Add this effect to save tabs state
+  useEffect(() => {
+    localStorage.setItem('dashboardTabs', JSON.stringify(tabs));
+  }, [tabs]);
+
+  // Add this effect to save active tab
+  useEffect(() => {
+    localStorage.setItem('dashboardActiveTab', activeTabId);
+  }, [activeTabId]);
+
+  // Add cleanup when component unmounts
+  useEffect(() => {
+    return () => {
+      // Save final state when component unmounts
+      localStorage.setItem('dashboardTabs', JSON.stringify(tabs));
+      localStorage.setItem('dashboardActiveTab', activeTabId);
+    };
+  }, [tabs, activeTabId]);
+
+  // Add helper function to get active tab
+  const getActiveTab = () => tabs.find(tab => tab.id === activeTabId)!;
+
+  // Update addNewTab function
+  const addNewTab = () => {
+    const newTabId = `tab-${tabs.length + 1}`;
+    setTabs([...tabs, {
+      id: newTabId,
+      name: `Layout ${tabs.length + 1}`,
+      selectedCharts: [],
+      layout: { lg: [] },
+      hasUnsavedChanges: false
+    }]);
+    setActiveTabId(newTabId);
+  };
+
+  // Function to switch tabs
+  const switchTab = (tabId: string) => {
+    setActiveTabId(tabId);
+  };
+
+  // Function to remove a tab
+  const [tabToClose, setTabToClose] = useState<string | null>(null);
+
+  const ConfirmDialog = ({ 
+    isOpen, 
+    onClose, 
+    onConfirm,
+    onSave, 
+    title, 
+    message 
+  }: { 
+    isOpen: boolean; 
+    onClose: () => void; 
+    onConfirm: () => void;
+    onSave: () => void;
+    title: string; 
+    message: string; 
+  }) => {
+    if (!isOpen) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className={`${
+          currentTheme === 'light' 
+            ? 'bg-white' 
+            : 'bg-gray-800'
+          } rounded-lg p-6 max-w-md w-full mx-4 shadow-xl`}
+        >
+          <h3 className={`text-lg font-semibold mb-2 ${
+            currentTheme === 'light' 
+              ? 'text-gray-900' 
+              : 'text-gray-100'
+          }`}>
+            {title}
+          </h3>
+          <p className={`mb-4 ${
+            currentTheme === 'light' 
+              ? 'text-gray-600' 
+              : 'text-gray-300'
+          }`}>
+            {message}
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={onClose}
+              className={`px-4 py-2 rounded-md text-sm font-medium ${
+                currentTheme === 'light'
+                  ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  : 'bg-gray-700 hover:bg-gray-600 text-gray-200'
+              }`}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                onSave();
+                onClose();
+              }}
+              className={`px-4 py-2 rounded-md text-sm font-medium ${
+                currentTheme === 'light'
+                  ? 'bg-blue-100 hover:bg-blue-200 text-blue-700'
+                  : 'bg-blue-900/30 hover:bg-blue-900/50 text-blue-400'
+              }`}
+            >
+              Save Layout
+            </button>
+            <button
+              onClick={onConfirm}
+              className="px-4 py-2 rounded-md text-sm font-medium bg-red-600 hover:bg-red-700 text-white"
+            >
+              Close Without Saving
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const removeTab = (tabId: string) => {
+    setTabToClose(null);
+    setTabs(tabs.filter(tab => tab.id !== tabId));
+    if (activeTabId === tabId && tabs.length > 1) {
+      const currentIndex = tabs.findIndex(tab => tab.id === tabId);
+      const newIndex = currentIndex > 0 ? currentIndex - 1 : 1;
+      setActiveTabId(tabs[newIndex].id);
+    }
+  };
+
+  // Update layout for the active tab
+  const handleLayoutChange = (currentLayout: Layout[], allLayouts: Layouts) => {
+    setTabs(prev => prev.map(tab => 
+      tab.id === activeTabId
+        ? { 
+            ...tab, 
+            layout: allLayouts,
+            hasUnsavedChanges: true 
+          }
+        : tab
+    ));
+  };
+
+  // Add these new functions for tab management
+  const handleTabNameEdit = (tabId: string, newName: string) => {
+    setTabs(prev => prev.map(tab => 
+      tab.id === tabId 
+        ? { ...tab, name: newName, isEditing: false }
+        : tab
+    ));
+  };
+
+  const startTabEdit = (tabId: string) => {
+    setTabs(prev => prev.map(tab => 
+      tab.id === tabId 
+        ? { ...tab, isEditing: true }
+        : { ...tab, isEditing: false }
+    ));
+  };
+
+  // Update the close tab logic
+  const handleTabClose = (tabId: string) => {
+    const tab = tabs.find(t => t.id === tabId);
+    if (!tab || !tab.hasUnsavedChanges) {
+      // If no unsaved changes, close immediately
+      removeTab(tabId);
+    } else {
+      // If has unsaved changes, show confirmation
+      setTabToClose(tabId);
+    }
+  };
+
+  // Add this function to handle layout menu item click
+  const handleLayoutMenuItemClick = async (layoutId: number) => {
+    try {
+      console.log('Loading layout into current tab:', activeTabId);
+      setIsLoadingLayout(true);
+      const layout = await loadDashboardLayout(Number(projectId), layoutId);
+      
+      if (!layout?.layout_data || !layout?.charts) {
+        throw new Error(ERROR_MESSAGES.NOT_FOUND);
+      }
+
+      // Update current tab with loaded layout
+      setTabs(prev => prev.map(tab => 
+        tab.id === activeTabId
+          ? {
+              ...tab,
+              name: layout.name,
+              selectedCharts: layout.charts,
+              layout: {
+                lg: layout.layout_data.lg.map((item) => ({
+                  i: `chart-${item.chartId}`,
+                  x: Number(item.x) || 0,
+                  y: Number(item.y) || 0,
+                  w: Number(item.w) || 6,
+                  h: Number(item.h) || 4,
+                  minW: Number(item.minW) || 3,
+                  minH: Number(item.minH) || 3
+                }))
+              },
+              layoutId: layoutId,
+              hasUnsavedChanges: false
+            }
+          : tab
+      ));
+
+      setIsLayoutMenuOpen(false);
+      showToast('Layout loaded successfully', 'success');
+    } catch (error) {
+      console.error('Error loading layout:', error);
+      showToast('Failed to load layout', 'error');
     } finally {
       setIsLoadingLayout(false);
     }
@@ -656,7 +936,7 @@ export default function DashboardView({
                       key={chart.id}
                       onClick={() => toggleSavedChartSelection(chart)}
                       className={`flex items-center gap-2 p-3 rounded-md cursor-pointer mb-2 transition-colors ${
-                        selectedSavedCharts.some(c => c.id === chart.id)
+                        getActiveTab().selectedCharts.some(c => c.id === chart.id)
                           ? currentTheme === 'light'
                             ? 'bg-blue-50 border border-blue-200'
                             : 'bg-blue-900/20 border border-blue-800'
@@ -666,7 +946,7 @@ export default function DashboardView({
                       }`}
                     >
                       <div className={`p-1.5 rounded ${
-                        selectedSavedCharts.some(c => c.id === chart.id)
+                        getActiveTab().selectedCharts.some(c => c.id === chart.id)
                           ? currentTheme === 'light'
                             ? 'bg-blue-100'
                             : 'bg-blue-900/30'
@@ -674,7 +954,7 @@ export default function DashboardView({
                             ? 'bg-gray-100'
                             : 'bg-gray-800'
                       }`}>
-                        {selectedSavedCharts.some(c => c.id === chart.id) ? (
+                        {getActiveTab().selectedCharts.some(c => c.id === chart.id) ? (
                           <Minus className={`w-4 h-4 ${
                             currentTheme === 'light'
                               ? 'text-blue-600'
@@ -761,11 +1041,14 @@ export default function DashboardView({
                 {/* Add Layout Menu */}
                 <div className="relative">
                   <Button
-                    variant="outline"
+                    variant="primary"
                     size="sm"
                     onClick={() => setIsLayoutMenuOpen(!isLayoutMenuOpen)}
+                    className={`flex items-center gap-2 p-2 rounded-lg transition-colors ${
+                      currentTheme === 'light' ? 'text-gray-600' : 'text-white'
+                    }`}
                   >
-                    <Menu className="w-4 h-4 mr-2" />
+                    <Menu className="w-4 h-4" />
                     Layouts
                   </Button>
                   
@@ -791,7 +1074,7 @@ export default function DashboardView({
                         {savedLayouts.map((layout) => (
                           <button
                             key={layout.id}
-                            onClick={() => handleLoadLayout(layout.id!)}
+                            onClick={() => layout.id && handleLayoutMenuItemClick(layout.id)}
                             className={`block px-4 py-2 text-sm w-full text-left ${
                               currentTheme === 'light'
                                 ? 'text-gray-700 hover:bg-gray-100'
@@ -819,75 +1102,151 @@ export default function DashboardView({
               </div>
             </div>
 
+            {/* Tabs for layouts */}
+            <div className={`flex items-center gap-1 border-b overflow-x-auto ${
+              currentTheme === 'light' ? 'border-gray-200' : 'border-gray-800'
+            }`}>
+              <div className="flex-1 flex items-center">
+                {tabs.map(tab => (
+                  <div
+                    key={tab.id}
+                    className={`group flex items-center ${
+                      activeTabId === tab.id
+                        ? currentTheme === 'light'
+                          ? 'border-b-2 border-blue-500'
+                          : 'border-b-2 border-blue-400'
+                        : ''
+                    }`}
+                  >
+                    {tab.isEditing ? (
+                      <input
+                        type="text"
+                        defaultValue={tab.name}
+                        className={`px-4 py-2 bg-transparent focus:outline-none ${
+                          currentTheme === 'light' ? 'text-gray-900' : 'text-gray-100'
+                        }`}
+                        onBlur={(e) => handleTabNameEdit(tab.id, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleTabNameEdit(tab.id, e.currentTarget.value);
+                          }
+                        }}
+                        autoFocus
+                      />
+                    ) : (
+                      <button
+                        onClick={() => switchTab(tab.id)}
+                        onDoubleClick={() => startTabEdit(tab.id)}
+                        className={`px-4 py-2 text-sm font-medium transition-colors rounded-lg flex items-center justify-between ${
+                          activeTabId === tab.id
+                            ? currentTheme === 'light'
+                              ? 'bg-blue-100 text-blue-600'
+                              : 'bg-blue-900 text-blue-400'
+                            : currentTheme === 'light'
+                            ? 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                            : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                        }`}
+                      >
+                        {tab.name}
+                        {/* Only show close button if not default tab */}
+                        {tab.id !== 'default' && (
+                          <X
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTabClose(tab.id);
+                            }}
+                            className={`ml-2 w-3 h-3 transition-colors ${
+                              currentTheme === 'light'
+                                ? 'hover:text-gray-600'
+                                : 'hover:text-gray-300'
+                            }`}
+                          />
+                        )}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={addNewTab}
+                className={`flex items-center gap-1 px-4 py-2 text-sm font-medium transition-colors rounded-lg ${
+                  currentTheme === 'light'
+                    ? 'text-blue-600 hover:bg-blue-50'
+                    : 'text-blue-400 hover:bg-blue-900/20'
+                }`}
+              >
+                <Plus className="w-4 h-4" />
+                New Tab
+              </button>
+            </div>
+
             {/* Charts grid */}
             <div className="flex-1 overflow-auto p-4" ref={gridRef}>
               <ResponsiveGridLayout
                 className="layout"
-                layouts={layouts}
+                layouts={getActiveTab().layout}
                 breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
                 cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
                 rowHeight={100}
-                onLayoutChange={(currentLayout, allLayouts) => {
-                  debouncedLayoutChange(currentLayout, allLayouts);
-                }}
+                onLayoutChange={handleLayoutChange}
                 isDraggable={true}
                 isResizable={true}
                 margin={[16, 16]}
                 containerPadding={[16, 16]}
+                minW={4}
+                minH={4}
               >
-                {/* Render saved charts */}
-                {selectedSavedCharts.map((chart) => {
-                  const key = `chart-${chart.id}`;
-                  // Find the layout item for this chart
-                  const layoutItem = layouts?.lg?.find(item => item.i === key);
-                  
-                  return (
-                    <div 
-                      key={key} 
-                      data-grid={{
-                        x: layoutItem?.x || 0,  // Use layout x or default to 0
-                        y: layoutItem?.y || 0,  // Use layout y or default to 0
-                        w: layoutItem?.w || 6,
-                        h: layoutItem?.h || 4,
-                        minW: layoutItem?.minW || 3,
-                        minH: layoutItem?.minH || 3,
-                        i: key
-                      }}
-                    >
-                      <ChartRenderer
-                        dashboard={chart.chart_data}
-                        hideDownload={true}
-                        dimensions={{
-                          width: 100,
-                          height: 100
-                        }}
-                      />
-                    </div>
-                  );
-                })}
-
-                {selectedDashboards
-                  .filter(dashboard => dashboard.selected)
-                  .map((dashboard) => {
-                    const key = `chart-${dashboard.dashboardData.Name.replace(/\s+/g, '-')}`;
-                    // Find the layout item for this dashboard
-                    const layoutItem = layouts?.lg?.find(item => item.i === key);
-                    
-                    return (
+                {[
+                  ...selectedDashboards
+                    .filter(d => d.selected)
+                    .map((dashboard, index) => ({
+                      key: `chart-${index}`,
+                      element: (
+                        <div 
+                          key={`chart-${index}`}
+                          data-grid={{
+                            i: `chart-${index}`,
+                            x: (index % 2) * 6,
+                            y: Math.floor(index / 2) * 4,
+                            w: 6,
+                            h: 4,
+                            minW: 4,
+                            minH: 4,
+                            ...getActiveTab().layout.lg?.find(item => item.i === `chart-${index}`)
+                          }}
+                          className={`${currentTheme === 'light' ? 'bg-white' : 'bg-gray-900'} p-4 rounded-lg shadow-sm w-full h-full`}
+                        >
+                          <ChartRenderer
+                            dashboard={dashboard.dashboardData}
+                            hideDownload={true}
+                            dimensions={{
+                              width: 100,
+                              height: 100
+                            }}
+                          />
+                        </div>
+                      )
+                    })),
+                  ...getActiveTab().selectedCharts.map(chart => ({
+                    key: `chart-${chart.id}`,
+                    element: (
                       <div 
-                        key={key} 
+                        key={`chart-${chart.id}`}
                         data-grid={{
-                          x: layoutItem?.x || 0,  // Use layout x or default to 0
-                          y: layoutItem?.y || 0,  // Use layout y or default to 0
-                          w: layoutItem?.w || 6,
-                          h: layoutItem?.h || 4,
-                          minW: layoutItem?.minW || 3,
-                          minH: layoutItem?.minH || 3,
-                          i: key
+                          i: `chart-${chart.id}`,
+                          x: 0,
+                          y: 0,
+                          w: 6,
+                          h: 4,
+                          minW: 4,
+                          minH: 4,
+                          ...getActiveTab().layout.lg?.find(item => item.i === `chart-${chart.id}`)
                         }}
+                        className={`${currentTheme === 'light' ? 'bg-white' : 'bg-gray-900'} p-4 rounded-lg shadow-sm w-full h-full`}
                       >
                         <ChartRenderer
-                          dashboard={dashboard.dashboardData}
+                          dashboard={chart.chart_data}
                           hideDownload={true}
                           dimensions={{
                             width: 100,
@@ -895,8 +1254,9 @@ export default function DashboardView({
                           }}
                         />
                       </div>
-                    );
-                  })}
+                    )
+                  }))
+                ].map(item => item.element)}
               </ResponsiveGridLayout>
             </div>
           </div>
@@ -909,6 +1269,26 @@ export default function DashboardView({
         onOpenChange={setIsSaveLayoutOpen}
         onSave={handleSaveLayout}
         isLoading={isLoadingLayout}
+      />
+
+      <ConfirmDialog
+        isOpen={tabToClose !== null}
+        onClose={() => setTabToClose(null)}
+        onConfirm={() => removeTab(tabToClose!)}
+        onSave={async () => {
+          const tab = tabs.find(t => t.id === tabToClose);
+          if (tab?.layoutId) {
+            // If this is an existing layout, save directly
+            await handleSaveLayout();
+            removeTab(tabToClose!);
+          } else {
+            // If this is a new layout, show the save dialog
+            setIsSaveLayoutOpen(true);
+            setTabToClose(null);
+          }
+        }}
+        title="Close Tab"
+        message="Would you like to save your changes before closing the tab?"
       />
     </motion.div>
   );

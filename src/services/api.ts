@@ -260,6 +260,13 @@ export const downloadProjectFile = async (projectId: number, fileId: number) => 
 
 export const logout = () => {
   setAuthToken(null)
+  // Clear any other stored session data
+  localStorage.clear()
+  sessionStorage.clear()
+  
+  // Clear all browser history and redirect
+  window.history.pushState(null, '', '/company-login')
+  window.history.go(0)
 }
 
 // Add these new interfaces
@@ -595,4 +602,24 @@ export const deleteSavedPrompt = async (projectId: number, promptId: number) => 
   } catch (error) {
     throw error;
   }
+};
+
+export const updateDashboardLayout = async (
+  projectId: number, 
+  layoutId: number, 
+  layoutConfig: any
+) => {
+  const response = await fetch(`/api/projects/${projectId}/dashboard/layouts/${layoutId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(layoutConfig),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update dashboard layout');
+  }
+
+  return response.json();
 };

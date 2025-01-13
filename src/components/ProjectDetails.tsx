@@ -353,14 +353,15 @@ export function ProjectDetails() {
             onValueChange={(value) => setActiveTab(value as 'files' | 'dashboard')}
             className="space-y-4"
           >
-            <TabsList className={`inline-flex h-10 items-center justify-center rounded-full p-1 bg-white dark:bg-slate-950 shadow-lg`}>
+            <TabsList className={`inline-flex h-10 items-center justify-center rounded-full p-1 
+              ${currentTheme === 'dark' ? 'bg-[#2A2A2A]' : 'bg-white'} shadow-lg`}>
               <TabsTrigger 
                 value="files"
                 className={`inline-flex items-center justify-center whitespace-nowrap rounded-full px-6 py-1.5 text-sm font-medium 
                   transition-all focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 
                   data-[state=active]:bg-teal-500 data-[state=active]:text-white
                   data-[state=inactive]:text-slate-600 data-[state=inactive]:hover:bg-slate-100
-                  dark:data-[state=inactive]:text-slate-400 dark:data-[state=inactive]:hover:bg-slate-800/50`}
+                  ${currentTheme === 'dark' ? 'data-[state=inactive]:text-white data-[state=inactive]:hover:bg-slate-800/50' : ''}`}
               >
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
                 Files
@@ -371,7 +372,7 @@ export function ProjectDetails() {
                   transition-all focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 
                   data-[state=active]:bg-teal-500 data-[state=active]:text-white
                   data-[state=inactive]:text-slate-600 data-[state=inactive]:hover:bg-slate-100
-                  dark:data-[state=inactive]:text-slate-400 dark:data-[state=inactive]:hover:bg-slate-800/50`}
+                  ${currentTheme === 'dark' ? 'data-[state=inactive]:text-white data-[state=inactive]:hover:bg-slate-800/50' : ''}`}
               >
                 <RechartsLineChart className="w-4 h-4 mr-2" />
                 Dashboard
@@ -527,7 +528,7 @@ export function ProjectDetails() {
                           dimensions={{ width: 100, height: 300 }}
                         />
                       </div>
-                      <div className={`text-xs mt-2 text-black border-t pt-2`}>
+                      <div className={`text-xs mt-2 ${themeStyles.text} border-t pt-2`}>
                         {chart.query}
                       </div>
                     </CardContent>

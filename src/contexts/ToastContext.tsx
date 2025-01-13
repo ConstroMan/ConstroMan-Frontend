@@ -19,10 +19,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
 
-    // Auto-remove toast after 5 seconds
+    // Auto-remove toast based on type
+    const duration = type === 'success' ? 2000 : 5000; // Set duration for success and error
     setTimeout(() => {
       setToasts(prev => prev.filter(toast => toast.id !== id));
-    }, 5000);
+    }, duration);
   };
 
   return (

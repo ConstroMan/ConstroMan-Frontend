@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 
 interface ToastProps {
@@ -18,10 +18,10 @@ export const Toast = ({ message, type, onClose }: ToastProps) => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -100 }}
+      initial={{ opacity: 0, y: 100 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -100 }}
-      className={`fixed top-4 right-4 z-50 p-4 rounded-md border ${colors[type]} shadow-lg max-w-md`}
+      exit={{ opacity: 0, y: 100 }}
+      className={`fixed inset-x-0 bottom-4 mx-auto w-fit z-50 p-4 rounded-full border ${colors[type]} shadow-lg max-w-md`}
     >
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium">{message}</p>
