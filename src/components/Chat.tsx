@@ -1036,6 +1036,16 @@ export default function Chat() {
   const [savedPrompts, setSavedPrompts] = useState<Set<string>>(new Set());
 
   const handleSavePrompt = async (content: string) => {
+    // Check if prompt is already saved
+    if (savedPrompts.has(content)) {
+      toast({
+        title: "Prompt already saved",
+        description: "This prompt has already been saved to your collection.",
+        variant: "default"
+      });
+      return;
+    }
+
     try {
       await savePrompt({ 
         content, 
@@ -1265,20 +1275,24 @@ export default function Chat() {
                           className="p-1 hover:bg-gray-700/10 rounded-full transition-colors"
                           title="Copy message"
                         >
-                          <Copy className="w-4 h-4 text-gray-400" />
+                          <Copy className={`w-4 h-4 ${
+                            currentTheme === 'light' ? 'black' : 'text-gray-400'
+                          }`} />
                         </button>
                         <button
                           onClick={() => handleSavePrompt(message.content)}
                           className="p-1 hover:bg-gray-700/10 rounded-full transition-colors"
-                          title="Save prompt"
+                          title={savedPrompts.has(message.content) ? "Already saved" : "Save prompt"}
                         >
-                          <Bookmark 
-                            className={`w-4 h-4 ${
-                              savedPrompts.has(message.content) 
-                                ? 'text-gray-400 fill-gray-400' 
-                                : 'text-gray-400'
-                            }`} 
-                          />
+                          {savedPrompts.has(message.content) ? (
+                            <BookmarkCheck className={`w-4 h-4 ${
+                              currentTheme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                            }`} />
+                          ) : (
+                            <Bookmark className={`w-4 h-4 ${
+                              currentTheme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                            }`} />
+                          )}
                         </button>
                       </div>
                     )}
@@ -1394,8 +1408,13 @@ export default function Chat() {
           onClose={() => setIsSavedPromptsOpen(false)}
           onSelectPrompt={handleSelectPrompt}
           projectId={Number(projectId)}
+          onPromptSelected={(content) => setSavedPrompts(prev => new Set(prev).add(content))}
         />
       </motion.div>
     </AnimatePresence>
   );
 }
+function toast(arg0: { title: string; description: string; variant: string }) {
+  throw new Error('Function not implemented.')
+}
+

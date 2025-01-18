@@ -25,7 +25,7 @@ export function NavBar() {
   return (
     <>
       <motion.div
-        className="fixed top-4 right-4 z-50"
+        className="fixed top-4 right-4 z-40"
         onHoverStart={() => setIsOpen(true)}
         onHoverEnd={() => setIsOpen(false)}
       >

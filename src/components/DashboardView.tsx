@@ -8,13 +8,15 @@ import 'react-resizable/css/styles.css';
 import './gridLayoutTheme.css';
 import { ChartRenderer } from './ChartRenderer'; 
 import { DashboardLayout } from '../types/dashboard';
-import { getProjectCharts, saveProjectChart, toggleChartPin, addChartToProjectDashboard, getProjectDashboardCharts, saveDashboardLayout, getDashboardLayouts, loadDashboardLayout, DashboardLayoutConfig, DashboardLayoutItem, updateDashboardLayout } from '../services/api';
+import { getProjectCharts, saveProjectChart, toggleChartPin, addChartToProjectDashboard, getProjectDashboardCharts, saveDashboardLayout, getDashboardLayouts, loadDashboardLayout, DashboardLayoutConfig, DashboardLayoutItem, updateDashboardLayout, removeChartFromDashboard } from '../services/api';
 import debounce from 'lodash/debounce';
 import { SaveLayoutDialog } from './SaveLayoutDialog';
 import { Button } from './ui/Button';
 import { useToast } from '../contexts/ToastContext';
 import { ERROR_MESSAGES } from '../constants/errorMessages';
 import { DashboardItem } from '../types/dashboard';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const ResponsiveGridLayout = WidthProvider(Responsive) as unknown as React.ComponentType<{
   className: string;
@@ -737,6 +739,48 @@ export default function DashboardView({
     }
   };
 
+  const handleTogglePin = async (e: React.MouseEvent, chart: SavedChart) => {
+    e.stopPropagation(); // Prevent chart selection when clicking pin
+    try {
+      if (pinnedCharts.includes(chart.id)) {
+        await removeChartFromDashboard(Number(projectId), chart.id);
+        setPinnedCharts(prev => prev.filter(id => id !== chart.id));
+      } else {
+        await addChartToProjectDashboard(Number(projectId), chart.id);
+        setPinnedCharts(prev => [...prev, chart.id]);
+      }
+    } catch (error) {
+      console.error('Error toggling pin status:', error);
+    }
+  };
+
+  const downloadLayoutAsPDF = async () => {
+    const layoutElement = document.querySelector('.layout');
+    if (!layoutElement) return;
+
+    try {
+      const canvas = await html2canvas(layoutElement as HTMLElement, {
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        allowTaint: true
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`dashboard-layout.pdf`);
+    } catch (error) {
+      console.error('Error downloading layout:', error);
+      showToast('Error downloading layout', 'error');
+    }
+  };
+
   return (
     <motion.div 
       initial={{ 
@@ -880,8 +924,8 @@ export default function DashboardView({
                           }}
                           className={`p-2 rounded-lg ${
                             currentTheme === 'light'
-                              ? 'hover:bg-gray-200'
-                              : 'hover:bg-gray-800'
+                              ? 'hover:bg-gray-200 text-gray-600'
+                              : 'hover:bg-gray-700 text-gray-200'
                           }`}
                         >
                           <MoreVertical className="w-4 h-4" />
@@ -985,16 +1029,13 @@ export default function DashboardView({
                         </p>
                       </div>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddToDashboard(chart);
-                        }}
+                        onClick={(e) => handleTogglePin(e, chart)}
                         className={`p-1.5 rounded-full transition-colors ${
                           pinnedCharts.includes(chart.id)
                             ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400' 
                             : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
                         }`}
-                        title={pinnedCharts.includes(chart.id) ? "Pinned to dashboard" : "Pin to dashboard"}
+                        title={pinnedCharts.includes(chart.id) ? "Unpin from dashboard" : "Pin to dashboard"}
                       >
                         <Pin 
                           className={`w-4 h-4 ${
@@ -1039,23 +1080,40 @@ export default function DashboardView({
               
               <div className="flex items-center gap-2">
                 {/* Add Layout Menu */}
-                <div className="relative">
+                <div className="relative flex items-center gap-2">
                   <Button
                     variant="primary"
                     size="sm"
                     onClick={() => setIsLayoutMenuOpen(!isLayoutMenuOpen)}
-                    className={`flex items-center gap-2 p-2 rounded-lg transition-colors ${
-                      currentTheme === 'light' ? 'text-gray-600' : 'text-white'
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors shadow-lg ${
+                      currentTheme === 'light' 
+                        ? 'bg-teal/80 text-white hover:bg-teal-700' 
+                        : 'bg-[#2A2A2A]/80 text-gray-200 hover:bg-[#2A2A2A] border-gray-800'
                     }`}
                   >
                     <Menu className="w-4 h-4" />
                     Layouts
                   </Button>
                   
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={downloadLayoutAsPDF}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors shadow-lg ${
+                      currentTheme === 'light' 
+                        ? 'bg-teal/80 text-white hover:bg-teal-700' 
+                        : 'bg-[#2A2A2A]/80 text-gray-200 hover:bg-[#2A2A2A] border-gray-800'
+                    }`}
+                    title="Download Layout as PDF"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download PDF
+                  </Button>
+                  
                   {isLayoutMenuOpen && (
                     <div className={`absolute right-0 mt-2 w-56 rounded-md shadow-lg ${
                       currentTheme === 'light' ? 'bg-white' : 'bg-gray-800'
-                    } ring-1 ring-black ring-opacity-5 z-10`}>
+                    } ring-1 ring-black ring-opacity-5 z-10 top-full`}>
                       <div className="py-1">
                         <button
                           onClick={() => {
@@ -1091,7 +1149,7 @@ export default function DashboardView({
                 
                 <button
                   onClick={onClose}
-                  className={`p-2 rounded-lg transition-colors ${
+                  className={`p-2 rounded-full transition-colors ${
                     currentTheme === 'light'
                       ? 'hover:bg-gray-100 text-gray-600'
                       : 'hover:bg-gray-800 text-gray-300'

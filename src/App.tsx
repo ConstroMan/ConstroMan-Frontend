@@ -13,21 +13,21 @@ import { ToastProvider } from './contexts/ToastContext';
 const App: React.FC = () => {
   return (
     <ThemeProvider>
-        <ToastProvider>
-      <AnimatePresence mode="wait">
-        <Router>
-          <div className="min-h-screen bg-gray-100">
-            <Routes>
-              <Route path="/company-login" element={<CompanyLogin />} />
-              <Route path="/company-signup" element={<CompanySignup />} />
-              <Route path="/projects" element={<ProjectSelector />} />
-              <Route path="/project/:projectId" element={<ProjectDetails />} />
-              <Route path="/chat/:projectId" element={<Chat />} />
-              <Route path="/" element={<CompanyLogin />} />
-            </Routes>
-          </div>
-        </Router>
-      </AnimatePresence>
+      <ToastProvider>
+        <AnimatePresence mode="wait" initial={false}>
+          <Router>
+            <div className="min-h-screen">
+              <Routes>
+                <Route path="/company-login" element={<CompanyLogin />} />
+                <Route path="/company-signup" element={<CompanySignup />} />
+                <Route path="/projects" element={<ProjectSelector />} />
+                <Route path="/project/:projectId" element={<ProjectDetails />} />
+                <Route path="/chat/:projectId" element={<Chat />} />
+                <Route path="/" element={<CompanyLogin />} />
+              </Routes>
+            </div>
+          </Router>
+        </AnimatePresence>
       </ToastProvider>
     </ThemeProvider>
   )

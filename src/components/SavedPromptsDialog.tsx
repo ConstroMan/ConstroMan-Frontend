@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
-import { X, Search } from 'lucide-react'
+import { X, Search, Trash2 } from 'lucide-react'
 import { SavedPrompt, getSavedPrompts, deleteSavedPrompt } from '../services/api'
 
 interface SavedPromptsDialogProps {
@@ -8,9 +8,10 @@ interface SavedPromptsDialogProps {
   onClose: () => void
   onSelectPrompt: (prompt: SavedPrompt) => void
   projectId: number
+  onPromptSelected?: (content: string) => void
 }
 
-export default function SavedPromptsDialog({ isOpen, onClose, onSelectPrompt, projectId }: SavedPromptsDialogProps) {
+export default function SavedPromptsDialog({ isOpen, onClose, onSelectPrompt, projectId, onPromptSelected }: SavedPromptsDialogProps) {
   const [prompts, setPrompts] = useState<SavedPrompt[]>([])
   const [searchTerm, setSearchTerm] = useState('')
 
@@ -29,7 +30,8 @@ export default function SavedPromptsDialog({ isOpen, onClose, onSelectPrompt, pr
     }
   }, [isOpen, projectId])
 
-  const handleDelete = async (promptId: number) => {
+  const handleDelete = async (promptId: number, e: React.MouseEvent) => {
+    e.stopPropagation()
     try {
       await deleteSavedPrompt(projectId, promptId)
       setPrompts(prompts.filter(p => p.id !== promptId))
@@ -41,6 +43,14 @@ export default function SavedPromptsDialog({ isOpen, onClose, onSelectPrompt, pr
   const filteredPrompts = prompts.filter(prompt =>
     prompt.content.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  const handleSelectPrompt = (prompt: SavedPrompt) => {
+    onSelectPrompt(prompt)
+    if (onPromptSelected) {
+      onPromptSelected(prompt.content)
+    }
+    onClose()
+  }
 
   return (
     <Transition appear show={isOpen} as={React.Fragment}>
@@ -96,13 +106,16 @@ export default function SavedPromptsDialog({ isOpen, onClose, onSelectPrompt, pr
                     filteredPrompts.map(prompt => (
                       <button
                         key={prompt.id}
-                        onClick={() => {
-                          onSelectPrompt(prompt)
-                          onClose()
-                        }}
-                        className="w-full text-left px-4 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
+                        onClick={() => handleSelectPrompt(prompt)}
+                        className="w-full text-left px-4 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 group relative"
                       >
-                        <div className="text-sm text-gray-600 dark:text-gray-300">{prompt.content}</div>
+                        <div className="text-sm text-gray-600 dark:text-gray-300 pr-8">{prompt.content}</div>
+                        <button
+                          onClick={(e) => handleDelete(prompt.id, e)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
                       </button>
                     ))
                   ) : (

@@ -7,12 +7,14 @@ import { Dashboard } from '../types/dashboard';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
 import { ERROR_MESSAGES } from '../constants/errorMessages';
+import jsPDF from 'jspdf';
 
 interface ChartRendererProps {
   dashboard: Dashboard;
   hideDownload?: boolean;
   dimensions?: { width: number; height: number };
   onResize?: () => void;
+  downloadType?: 'image' | 'excel' | 'pdf';
 }
 
 const downloadChartAsPNG = async (chartId: string, fileName: string) => {
@@ -42,46 +44,69 @@ const downloadTableAsXLSX = (dashboard: Dashboard, fileName: string) => {
   }
 };
 
+const downloadChartAsPDF = async (chartId: string, fileName: string) => {
+  const chartElement = document.getElementById(chartId);
+  if (chartElement) {
+    try {
+      const canvas = await html2canvas(chartElement, {
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        allowTaint: true
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`${fileName}.pdf`);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+    }
+  }
+};
+
 const getChartColors = (isDarkMode: boolean) => ({
   primary: [
-    isDarkMode ? 'rgba(96, 165, 250, 0.7)' : 'rgba(54, 162, 235, 0.7)',   // Blue
-    isDarkMode ? 'rgba(94, 234, 212, 0.7)' : 'rgba(75, 192, 192, 0.7)',   // Teal
-    isDarkMode ? 'rgba(251, 146, 60, 0.7)' : 'rgba(255, 159, 64, 0.7)',   // Orange
-    isDarkMode ? 'rgba(167, 139, 250, 0.7)' : 'rgba(153, 102, 255, 0.7)', // Purple
-    isDarkMode ? 'rgba(251, 113, 133, 0.7)' : 'rgba(255, 99, 132, 0.7)',  // Pink
-    isDarkMode ? 'rgba(250, 204, 21, 0.7)' : 'rgba(255, 206, 86, 0.7)',   // Yellow
-    isDarkMode ? 'rgba(74, 222, 128, 0.7)' : 'rgba(46, 204, 113, 0.7)',   // Green
-    isDarkMode ? 'rgba(248, 113, 113, 0.7)' : 'rgba(231, 76, 60, 0.7)',   // Red
-    isDarkMode ? 'rgba(192, 132, 252, 0.7)' : 'rgba(142, 68, 173, 0.7)',  // Violet
-    isDarkMode ? 'rgba(56, 189, 248, 0.7)' : 'rgba(52, 152, 219, 0.7)',   // Light Blue
+    isDarkMode ? 'rgba(59, 130, 246, 0.5)' : 'rgba(54, 162, 235, 0.7)',   // Blue
+    isDarkMode ? 'rgba(45, 212, 191, 0.5)' : 'rgba(75, 192, 192, 0.7)',   // Teal
+    isDarkMode ? 'rgba(249, 115, 22, 0.5)' : 'rgba(255, 159, 64, 0.7)',   // Orange
+    isDarkMode ? 'rgba(139, 92, 246, 0.5)' : 'rgba(153, 102, 255, 0.7)',  // Purple
+    isDarkMode ? 'rgba(244, 63, 94, 0.5)' : 'rgba(255, 99, 132, 0.7)',    // Pink
+    isDarkMode ? 'rgba(234, 179, 8, 0.5)' : 'rgba(255, 206, 86, 0.7)',    // Yellow
+    isDarkMode ? 'rgba(34, 197, 94, 0.5)' : 'rgba(46, 204, 113, 0.7)',    // Green
+    isDarkMode ? 'rgba(239, 68, 68, 0.5)' : 'rgba(231, 76, 60, 0.7)',     // Red
   ],
   primaryBorder: [
-    isDarkMode ? 'rgb(96, 165, 250)' : 'rgb(54, 162, 235)',     // Blue
-    isDarkMode ? 'rgb(94, 234, 212)' : 'rgb(75, 192, 192)',     // Teal
-    isDarkMode ? 'rgb(251, 146, 60)' : 'rgb(255, 159, 64)',     // Orange
-    isDarkMode ? 'rgb(167, 139, 250)' : 'rgb(153, 102, 255)',   // Purple
-    isDarkMode ? 'rgb(251, 113, 133)' : 'rgb(255, 99, 132)',    // Pink
-    isDarkMode ? 'rgb(250, 204, 21)' : 'rgb(255, 206, 86)',     // Yellow
-    isDarkMode ? 'rgb(74, 222, 128)' : 'rgb(46, 204, 113)',     // Green
-    isDarkMode ? 'rgb(248, 113, 113)' : 'rgb(231, 76, 60)',     // Red
-    isDarkMode ? 'rgb(192, 132, 252)' : 'rgb(142, 68, 173)',    // Violet
-    isDarkMode ? 'rgb(56, 189, 248)' : 'rgb(52, 152, 219)',     // Light Blue
+    isDarkMode ? 'rgb(59, 130, 246)' : 'rgb(54, 162, 235)',     // Blue
+    isDarkMode ? 'rgb(45, 212, 191)' : 'rgb(75, 192, 192)',     // Teal
+    isDarkMode ? 'rgb(249, 115, 22)' : 'rgb(255, 159, 64)',     // Orange
+    isDarkMode ? 'rgb(139, 92, 246)' : 'rgb(153, 102, 255)',    // Purple
+    isDarkMode ? 'rgb(244, 63, 94)' : 'rgb(255, 99, 132)',      // Pink
+    isDarkMode ? 'rgb(234, 179, 8)' : 'rgb(255, 206, 86)',      // Yellow
+    isDarkMode ? 'rgb(34, 197, 94)' : 'rgb(46, 204, 113)',      // Green
+    isDarkMode ? 'rgb(239, 68, 68)' : 'rgb(231, 76, 60)',       // Red
   ],
+  background: isDarkMode ? '#1e1e1e' : '#ffffff',
+  text: isDarkMode ? '#e2e8f0' : '#1e293b',
+  grid: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+  tooltip: {
+    background: isDarkMode ? 'rgba(17, 24, 39, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+    text: isDarkMode ? '#e2e8f0' : '#1e293b'
+  },
   doubleBar: {
     primary: {
-      background: isDarkMode ? 'rgba(96, 165, 250, 0.7)' : 'rgba(54, 162, 235, 0.7)',
-      border: isDarkMode ? 'rgb(96, 165, 250)' : 'rgb(54, 162, 235)'
+      background: isDarkMode ? 'rgba(59, 130, 246, 0.5)' : 'rgba(54, 162, 235, 0.7)',
+      border: isDarkMode ? 'rgb(59, 130, 246)' : 'rgb(54, 162, 235)'
     },
     secondary: {
-      background: isDarkMode ? 'rgba(94, 234, 212, 0.7)' : 'rgba(75, 192, 192, 0.7)',
-      border: isDarkMode ? 'rgb(94, 234, 212)' : 'rgb(75, 192, 192)'
+      background: isDarkMode ? 'rgba(45, 212, 191, 0.5)' : 'rgba(75, 192, 192, 0.7)',
+      border: isDarkMode ? 'rgb(45, 212, 191)' : 'rgb(75, 192, 192)'
     }
-  },
-  text: isDarkMode ? '#e2e8f0' : '#1e293b',  // slate-200 for dark, slate-800 for light
-  grid: isDarkMode ? 'rgba(226, 232, 240, 0.1)' : 'rgba(15, 23, 42, 0.1)', // slate-200 at 10% for dark, slate-900 at 10% for light
-  tooltip: {
-    background: isDarkMode ? 'rgba(30, 41, 59, 0.8)' : 'rgba(255, 255, 255, 0.8)',
-    text: isDarkMode ? '#e2e8f0' : '#1e293b'
   }
 });
 
@@ -90,7 +115,7 @@ const commonOptions = {
   maintainAspectRatio: false,
   animation: {
     duration: 0,
-    easing: 'easeInOutQuad'
+    easing: 'easeInOutQuad' as const
   },
   resizeDelay: 0,
   elements: {
@@ -251,7 +276,8 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
   dashboard, 
   hideDownload = false, 
   dimensions,
-  onResize 
+  onResize,
+  downloadType = 'image'
 }) => {
   const { currentTheme } = useTheme();
   const { showToast } = useToast();
@@ -304,23 +330,13 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
     ...commonOptions,
     responsive: true,
     maintainAspectRatio: false,
-    animation: {
-      duration: isResizing ? 0 : 1000,
-    },
-    devicePixelRatio: 2,
-    elements: {
-      point: {
-        radius: dimensions?.width && dimensions.width < 300 ? 2 : 4,
-      },
-      line: {
-        borderWidth: dimensions?.width && dimensions.width < 300 ? 1 : 2,
-      }
-    },
+    color: chartColors.text,
     scales: {
       y: {
         ...commonOptions.scales.y,
         grid: {
-          color: chartColors.grid
+          color: chartColors.grid,
+          borderColor: chartColors.grid
         },
         ticks: {
           color: chartColors.text
@@ -333,7 +349,8 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
       x: {
         ...commonOptions.scales.x,
         grid: {
-          color: chartColors.grid
+          color: chartColors.grid,
+          borderColor: chartColors.grid
         },
         ticks: {
           color: chartColors.text
@@ -347,17 +364,13 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
     plugins: {
       ...commonOptions.plugins,
       legend: {
-        position: 'bottom' as const,
+        ...commonOptions.plugins.legend,
         labels: {
-          padding: 20,
+          ...commonOptions.plugins.legend.labels,
+          color: isDarkMode ? '#ffffff' : '#1e293b',
           font: {
-            size: 12,
-            weight: 'bold' as const
-          },
-          color: isDarkMode ? '#e2e8f0' : '#1e293b',
-          usePointStyle: true,
-          boxWidth: 10,
-          boxHeight: 10
+            size: 11
+          }
         }
       },
       tooltip: {
@@ -365,25 +378,56 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
         backgroundColor: chartColors.tooltip.background,
         titleColor: chartColors.tooltip.text,
         bodyColor: chartColors.tooltip.text,
-        borderColor: isDarkMode ? 'rgba(226, 232, 240, 0.1)' : 'rgba(15, 23, 42, 0.1)',
+        borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
         borderWidth: 1
       }
     }
   }), [dimensions, isResizing, isDarkMode, chartColors]);
 
+  const handleDownload = async () => {
+    switch (downloadType) {
+      case 'image':
+        if (dashboard.Type === 'Table') {
+          await downloadTableAsXLSX(dashboard, dashboard.Name);
+        } else {
+          await downloadChartAsPNG(chartId, dashboard.Name);
+        }
+        break;
+      case 'excel':
+        await downloadTableAsXLSX(dashboard, dashboard.Name);
+        break;
+      case 'pdf':
+        await downloadChartAsPDF(chartId, dashboard.Name);
+        break;
+    }
+  };
+
   return (
     <div className="w-full relative" style={{ height: dimensions ? '100%' : '400px' }}>
       <div 
         id={chartId} 
-        className={`${isDarkMode ? 'bg-slate-900' : 'bg-white'} p-4 rounded-lg`}
+        className={`p-4 rounded-lg overflow-x-auto relative h-full ${
+          isDarkMode ? 'bg-#1A1A1A' : 'bg-white'
+        }`}
         style={{
-          width: '100%',
-          height: '100%',
-          position: 'absolute',
-          top: 0,
-          left: 0
+          boxShadow: isDarkMode ? '0 4px 6px -1px rgba(0, 0, 0, 0.3)' : '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
         }}
       >
+        {!hideDownload && (
+          <div className="absolute top-2 right-2 z-10">
+            <button
+              onClick={handleDownload}
+              className={`p-2 rounded-lg transition-colors ${
+                isDarkMode 
+                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' 
+                  : 'bg-white/80 hover:bg-white text-gray-600 hover:text-teal-600'
+              } shadow-sm`}
+              title={`Download ${downloadType === 'pdf' ? 'PDF' : downloadType === 'excel' ? 'Excel' : 'Image'}`}
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         {(() => {
           const chartContainerStyle = {
             position: 'relative' as const,
@@ -512,8 +556,14 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
                       plugins: {
                         ...chartOptions.plugins,
                         legend: {
-                          ...chartOptions.plugins.legend,
-                          position: 'bottom' as const
+                          position: 'bottom' as const,
+                          labels: {
+                            color: isDarkMode ? '#ffffff' : '#1e293b',
+                            padding: 20,
+                            font: {
+                              size: 11
+                            }
+                          }
                         }
                       }
                     }}
@@ -525,7 +575,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
               return (
                 <div className={dimensions ? "h-full overflow-auto" : "max-h-[400px] overflow-auto"}>
                   <table className={`min-w-full divide-y ${isDarkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
-                    <thead className={isDarkMode ? 'bg-slate-800' : 'bg-gray-50'}>
+                    <thead className={isDarkMode ? 'bg-#1A1A1A' : 'bg-gray-50'}>
                       <tr>
                         {dashboard.Column_headers?.map((header, i) => (
                           <th 
@@ -539,8 +589,8 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
                         ))}
                       </tr>
                     </thead>
-                    <tbody className={`${isDarkMode ? 'bg-slate-900' : 'bg-white'} divide-y ${
-                      isDarkMode ? 'divide-gray-700' : 'divide-gray-200'
+                    <tbody className={`${isDarkMode ? '#1A1A1A' : 'bg-white'} divide-y ${
+                      isDarkMode ? 'divide-gray-500' : 'divide-white'
                     }`}>
                       {dashboard.Row_data?.map((row, rowIndex) => (
                         <tr key={rowIndex}>

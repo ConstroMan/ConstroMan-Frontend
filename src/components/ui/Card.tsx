@@ -12,7 +12,7 @@ const Card = ({ children, className = '' }: CardProps) => {
   const themeStyles = themes[currentTheme];
   
   return (
-    <div className={`${themeStyles.cardBg} rounded-lg shadow-md ${className}`}>
+    <div className={`${themeStyles.cardBg} rounded-xl shadow-md ${className}`}>
       {children}
     </div>
   );
@@ -23,7 +23,7 @@ const CardHeader = ({ children, className = '' }: CardProps) => {
   const themeStyles = themes[currentTheme];
   
   return (
-    <div className={`p-6 ${themeStyles.cardBg} ${className}`}>
+    <div className={`p-6 ${themeStyles.cardBg} rounded-t-xl ${className}`}>
       {children}
     </div>
   );
@@ -45,7 +45,7 @@ const CardContent = ({ children, className = '' }: CardProps) => {
   const themeStyles = themes[currentTheme];
   
   return (
-    <div className={`p-6 ${themeStyles.cardBg} ${className}`}>
+    <div className={`p-6 ${themeStyles.cardBg} rounded-b-xl ${className}`}>
       {children}
     </div>
   );

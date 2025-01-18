@@ -95,8 +95,9 @@ export function ProjectDetails() {
   const themeStyles = themes[currentTheme];
   const [processingFiles, setProcessingFiles] = useState<Set<number>>(new Set());
   const [savedCharts, setSavedCharts] = useState<SavedChart[]>([]);
-  const [activeTab, setActiveTab] = useState<'files' | 'dashboard'>('files');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'files'>('dashboard');
   const [pinnedCharts, setPinnedCharts] = useState<SavedChart[]>([]);
+  const [updatingFiles, setUpdatingFiles] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     fetchProjectDetails();
@@ -230,11 +231,15 @@ export function ProjectDetails() {
     const files = e.target.files;
     if (!files || !projectId) return;
 
+    // Close dialog immediately
+    setIsUpdateFileDialogOpen(false);
+    
+    // Add file to updating state
+    setUpdatingFiles(prev => new Set([...prev, fileId]));
+
     try {
-      setIsUploading(true);
       await uploadFile(files[0], parseInt(projectId), false, true);
       await fetchProjectDetails();
-      setIsUpdateFileDialogOpen(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -242,24 +247,38 @@ export function ProjectDetails() {
       console.error('Error updating file:', error);
       setError('Failed to update file');
     } finally {
-      setIsUploading(false);
+      // Remove file from updating state
+      setUpdatingFiles(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(fileId);
+        return newSet;
+      });
     }
   };
 
   const handleRemoveFromDashboard = async (chartId: number) => {
     if (!projectId) return;
+    
     try {
       await removeChartFromDashboard(Number(projectId), chartId);
+      // Update local state to remove the chart
       setPinnedCharts(prev => prev.filter(chart => chart.id !== chartId));
+      
+      // Show a success message (optional)
+      // You can add a toast notification here if you have a toast system
     } catch (error) {
       console.error('Error removing chart from dashboard:', error);
+      // Show error message (optional)
     }
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-100 to-teal-100">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-100/50 to-teal-100/50 backdrop-blur-sm">
+        <div className={`${themeStyles.cardBg} p-8 rounded-xl shadow-lg flex items-center space-x-3`}>
+          <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+          <span className={`${themeStyles.text} text-sm font-medium`}>Loading project...</span>
+        </div>
       </div>
     );
   }
@@ -350,11 +369,22 @@ export function ProjectDetails() {
 
           <Tabs 
             value={activeTab} 
-            onValueChange={(value) => setActiveTab(value as 'files' | 'dashboard')}
+            onValueChange={(value) => setActiveTab(value as 'dashboard' | 'files')}
             className="space-y-4"
           >
             <TabsList className={`inline-flex h-10 items-center justify-center rounded-full p-1 
               ${currentTheme === 'dark' ? 'bg-[#2A2A2A]' : 'bg-white'} shadow-lg`}>
+              <TabsTrigger 
+                value="dashboard"
+                className={`inline-flex items-center justify-center whitespace-nowrap rounded-full px-6 py-1.5 text-sm font-medium 
+                  transition-all focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 
+                  data-[state=active]:bg-teal-500 data-[state=active]:text-white
+                  data-[state=inactive]:text-slate-600 data-[state=inactive]:hover:bg-slate-100
+                  ${currentTheme === 'dark' ? 'data-[state=inactive]:text-white data-[state=inactive]:hover:bg-slate-800/50' : ''}`}
+              >
+                <LineChart className="w-4 h-4 mr-2" />
+                Dashboard
+              </TabsTrigger>
               <TabsTrigger 
                 value="files"
                 className={`inline-flex items-center justify-center whitespace-nowrap rounded-full px-6 py-1.5 text-sm font-medium 
@@ -366,18 +396,70 @@ export function ProjectDetails() {
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
                 Files
               </TabsTrigger>
-              <TabsTrigger 
-                value="dashboard"
-                className={`inline-flex items-center justify-center whitespace-nowrap rounded-full px-6 py-1.5 text-sm font-medium 
-                  transition-all focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 
-                  data-[state=active]:bg-teal-500 data-[state=active]:text-white
-                  data-[state=inactive]:text-slate-600 data-[state=inactive]:hover:bg-slate-100
-                  ${currentTheme === 'dark' ? 'data-[state=inactive]:text-white data-[state=inactive]:hover:bg-slate-800/50' : ''}`}
-              >
-                <RechartsLineChart className="w-4 h-4 mr-2" />
-                Dashboard
-              </TabsTrigger>
             </TabsList>
+
+            <TabsContent 
+              value="dashboard"
+              className="mt-4 relative"
+              style={{
+                animation: "fadeIn 0.5s ease-out"
+              }}
+            >
+              {updatingFiles.size > 0 && (
+                <div className="absolute inset-0 bg-black/20 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
+                  <div className={`flex flex-col items-center space-y-3 ${themeStyles.cardBg}/80 bg-opacity-80 p-6 rounded-xl shadow-lg backdrop-blur-sm`}>
+                    <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+                    <p className={`text-sm font-medium ${themeStyles.text}`}>
+                      Updating charts...
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
+                {pinnedCharts.map((chart) => (
+                  <Card key={chart.id} className={`${themeStyles.cardBg} shadow-lg overflow-hidden`}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 border-b">
+                      <CardTitle className={`text-base font-medium ${themeStyles.text}`}>
+                        {chart.name}
+                      </CardTitle>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleRemoveFromDashboard(chart.id)}
+                          className={`p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 
+                            transition-colors text-gray-500 hover:text-red-600`}
+                          title="Remove from dashboard"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-4 pb-2">
+                      <div className="h-[300px] w-full">
+                        <ChartRenderer
+                          dashboard={chart.chart_data}
+                          hideDownload={true}
+                          dimensions={{ width: 100, height: 300 }}
+                        />
+                      </div>
+                      <div className={`text-xs mt-2 ${themeStyles.text} border-t pt-2`}>
+                        {chart.query}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                {pinnedCharts.length === 0 && (
+                  <div className="col-span-full flex flex-col items-center justify-center p-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                    <BarChart2 className={`h-12 w-12 ${themeStyles.subtext} mb-4`} />
+                    <h3 className={`text-lg font-medium ${themeStyles.text}`}>
+                      No charts pinned yet
+                    </h3>
+                    <p className={`text-sm ${themeStyles.subtext} mt-2 text-center max-w-md`}>
+                      Pin charts from your analysis to create a custom dashboard view
+                    </p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
 
             <TabsContent 
               value="files"
@@ -432,7 +514,14 @@ export function ProjectDetails() {
                                 {project?.files.map((file, index) => (
                                   <tr key={file.id} className={`border-b ${themeStyles.borderColor}`}>
                                     <td className={`px-6 py-4 whitespace-nowrap text-sm ${themeStyles.text}`}>
-                                      {file.name}
+                                      {updatingFiles.has(file.id) ? (
+                                        <div className="flex items-center">
+                                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                          <span>Updating file...</span>
+                                        </div>
+                                      ) : (
+                                        file.name
+                                      )}
                                     </td>
                                     <td className={`px-6 py-4 whitespace-nowrap text-sm ${themeStyles.subtext}`}>
                                       {file.addedBy}
@@ -451,6 +540,7 @@ export function ProjectDetails() {
                                             setIsUpdateFileDialogOpen(true);
                                           }}
                                           className={`${themeStyles.text} hover:${themeStyles.linkHoverColor}`}
+                                          disabled={updatingFiles.has(file.id)}
                                         >
                                           <FileEdit className="h-5 w-5" />
                                         </button>
@@ -493,58 +583,6 @@ export function ProjectDetails() {
                     </div>
                   </CardContent>
                 </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent 
-              value="dashboard"
-              className="mt-4"
-              style={{
-                animation: "fadeIn 0.5s ease-out"
-              }}
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
-                {pinnedCharts.map((chart) => (
-                  <Card key={chart.id} className={`${themeStyles.cardBg} shadow-lg overflow-hidden`}>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 border-b">
-                      <CardTitle className={`text-base font-medium text-black`}>
-                        {chart.name}
-                      </CardTitle>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleRemoveFromDashboard(chart.id)}
-                          className={`p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 
-                            transition-colors text-gray-500 hover:text-red-600`}
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-4 pb-2">
-                      <div className="h-[300px] w-full">
-                        <ChartRenderer
-                          dashboard={chart.chart_data}
-                          hideDownload={true}
-                          dimensions={{ width: 100, height: 300 }}
-                        />
-                      </div>
-                      <div className={`text-xs mt-2 ${themeStyles.text} border-t pt-2`}>
-                        {chart.query}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                {pinnedCharts.length === 0 && (
-                  <div className="col-span-full flex flex-col items-center justify-center p-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                    <BarChart2 className={`h-12 w-12 ${themeStyles.subtext} mb-4`} />
-                    <h3 className={`text-lg font-medium ${themeStyles.text}`}>
-                      No charts pinned yet
-                    </h3>
-                    <p className={`text-sm ${themeStyles.subtext} mt-2 text-center max-w-md`}>
-                      Pin charts from your analysis to create a custom dashboard view
-                    </p>
-                  </div>
-                )}
               </div>
             </TabsContent>
           </Tabs>

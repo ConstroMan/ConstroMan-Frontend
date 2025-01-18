@@ -10,6 +10,7 @@ interface DialogProps {
 export const Dialog: React.FC<DialogProps> & {
   Trigger: React.FC<{ children: React.ReactNode; asChild?: boolean }>;
   Content: React.FC<{ children: React.ReactNode; className?: string }>;
+  Overlay: React.FC<{ className?: string }>;
   Header: React.FC<{ children: React.ReactNode; className?: string }>;
   Title: React.FC<{ children: React.ReactNode; className?: string }>;
   Description: React.FC<{ children: React.ReactNode; className?: string }>;
@@ -47,4 +48,8 @@ Dialog.Description = ({ children, className = '' }) => (
 
 Dialog.Footer = ({ children, className = '' }) => (
   <div className={`mt-6 flex justify-end space-x-2 ${className}`}>{children}</div>
+);
+
+Dialog.Overlay = ({ className = '' }) => (
+  <div className={`fixed inset-0 bg-black/50 ${className}`} />
 );
