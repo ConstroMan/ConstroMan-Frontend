@@ -8,4 +8,5 @@ export const ERROR_MESSAGES = {
   FILE_UPLOAD_ERROR: 'Failed to upload file. Please try again.',
   FILE_SIZE_ERROR: 'File size exceeds the maximum limit.',
   FILE_TYPE_ERROR: 'File type not supported.',
+  SESSION_TIMEOUT: 'Your session has timed out due to inactivity. Please log in again.',
 } as const; 

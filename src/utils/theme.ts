@@ -19,8 +19,8 @@ export interface ThemeStyles {
 
 export const themes: Record<Theme, ThemeStyles> = {
   light: {
-    accentBorder: 'border-gray-300',
-    accentText: 'text-gray-900',
+    accentBorder: 'border-[#8B7355]',
+    accentText: 'text-[#8B7355]',
     background: 'bg-[#E8E0D5]',
     cardBg: 'bg-white',
     text: 'text-gray-900',
@@ -29,10 +29,10 @@ export const themes: Record<Theme, ThemeStyles> = {
     buttonBg: 'bg-[#8B7355]',
     buttonHoverBg: 'hover:bg-[#7A6548]',
     buttonText: 'text-white',
-    borderColor: 'border-gray-200',
+    borderColor: 'border-[#8B7355]',
     linkColor: 'text-[#8B7355]',
     linkHoverColor: 'hover:text-[#7A6548]',
-    shadowColor: 'shadow-gray-200'
+    shadowColor: 'shadow-[#8B7355]'
   },
   dark: {
     accentBorder: 'border-gray-700',
@@ -42,12 +42,12 @@ export const themes: Record<Theme, ThemeStyles> = {
     text: 'text-gray-200',
     subtext: 'text-gray-400',
     inputBg: 'bg-[#323232]',
-    buttonBg: 'bg-[#8B7355]',
-    buttonHoverBg: 'hover:bg-[#7A6548]',
+    buttonBg: 'bg-[#404040]',
+    buttonHoverBg: 'hover:bg-[#4A4A4A]',
     buttonText: 'text-white',
     borderColor: 'border-gray-700',
-    linkColor: 'text-[#8B7355]',
-    linkHoverColor: 'hover:text-[#7A6548]',
+    linkColor: 'text-gray-300',
+    linkHoverColor: 'hover:text-white',
     shadowColor: 'shadow-gray-900'
   }
 }; 

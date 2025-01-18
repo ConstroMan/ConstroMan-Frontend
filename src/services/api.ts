@@ -1,4 +1,7 @@
 import axios from 'axios'
+import { useNavigate } from 'react-router-dom';
+import { useToast } from '../contexts/ToastContext';
+import { ERROR_MESSAGES } from '../constants/errorMessages';
 
 const API_URL = 'http://127.0.0.1:5000'
 
@@ -7,7 +10,8 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true
+  withCredentials: true,
+  timeout: 3000000, // 30 seconds timeout
 })
 
 // Add a request interceptor
@@ -623,3 +627,56 @@ export const updateDashboardLayout = async (
 
   return response.json();
 };
+
+export const getPaymentStatus = async () => {
+  try {
+    const response = await api.get('/api/subscription/status');
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const initiateSubscription = async () => {
+  try {
+    const response = await api.post('/api/subscription/create');
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const verifyPayment = async (paymentData: {
+  razorpay_payment_id: string;
+  razorpay_subscription_id: string;
+  razorpay_signature: string;
+}) => {
+  try {
+    const response = await api.post('/api/subscription/verify', paymentData);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Add an interceptor to handle timeout and other errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      // Clear local storage
+      localStorage.removeItem('token');
+      localStorage.removeItem('userType');
+      
+      // Redirect to appropriate login page based on user type
+      const userType = localStorage.getItem('userType');
+      const redirectPath = userType === 'company' ? '/company-login' : '/login';
+      
+      window.location.href = redirectPath;
+      return Promise.reject({
+        message: ERROR_MESSAGES.SESSION_TIMEOUT
+      });
+    }
+    return Promise.reject(error);
+  }
+);
