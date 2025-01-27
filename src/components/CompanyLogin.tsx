@@ -35,14 +35,19 @@ export const CompanyLogin: React.FC = () => {
   }
 
   return (
-    <div 
-      className={`min-h-screen flex items-center justify-center ${themeStyles.background}`}
-      style={{ 
-        backgroundImage: currentTheme === 'light' ? `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.25' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` : 'none',
-        backgroundBlendMode: 'soft-light',
-        opacity: 0.98
-      }}
-    >
+    <div className={`min-h-screen flex flex-col items-center justify-center ${themeStyles.background}`}>
+      {/* Logo above dialog - width matched to dialog and centered */}
+      <div className="mb-1 w-full max-w-md flex justify-center">
+        <img 
+          src={currentTheme === 'dark' 
+            ? 'src/assets/images/Logo_Full_Dark_Mode-removebg-preview.png'
+            : 'src/assets/images/Logo_Full_Light_mode-removebg-preview.png'
+          } 
+          alt="ConstroMan Logo" 
+          className="w-4/5 h-auto" // Set width to 80% of container
+        />
+      </div>
+
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -100,7 +105,7 @@ export const CompanyLogin: React.FC = () => {
               placeholder="Company Email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor}`}
+              className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-full`}
             />
             <Input
               id="password"
@@ -111,7 +116,7 @@ export const CompanyLogin: React.FC = () => {
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor}`}
+              className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-full`}
             />
           </div>
 
@@ -133,14 +138,6 @@ export const CompanyLogin: React.FC = () => {
               className={`font-medium ${themeStyles.linkColor} ${themeStyles.linkHoverColor}`}
             >
               Sign up
-            </Link>
-          </p>
-          <p className={`text-center text-sm ${themeStyles.subtext}`}>
-            <Link 
-              to="/login" 
-              className={`font-medium ${themeStyles.linkColor} ${themeStyles.linkHoverColor}`}
-            >
-              Employee Login
             </Link>
           </p>
         </div>

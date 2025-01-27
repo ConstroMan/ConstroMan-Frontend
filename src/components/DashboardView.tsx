@@ -818,7 +818,7 @@ export default function DashboardView({
               opacity: isSidebarOpen ? 1 : 0
             }}
             transition={{ duration: 0.2 }}
-            className={`h-full border-r flex-shrink-0 ${
+            className={`h-full border-r flex-shrink-0 rounded-2xl ${
               currentTheme === 'light' 
                 ? 'border-gray-200 bg-gray-50' 
                 : 'border-gray-800 bg-[#141414]'
@@ -841,7 +841,7 @@ export default function DashboardView({
                         : 'text-gray-400'
                   }`}
                 >
-                  Available
+                  Current
                 </button>
                 <button
                   onClick={() => setActiveTab('saved')}

@@ -97,7 +97,7 @@ export const Login: React.FC = () => {
           {error && <p className="text-red-500 text-center">{error}</p>}
 
           <form className="space-y-6" onSubmit={handleSubmit}>
-            <div className="rounded-md shadow-sm -space-y-px">
+            <div className="space-y-2">
               <Input
                 id="email-address"
                 name="email"
@@ -107,7 +107,7 @@ export const Login: React.FC = () => {
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-t-md`}
+                className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-full`}
               />
               <Input
                 id="password"
@@ -118,7 +118,7 @@ export const Login: React.FC = () => {
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-b-md`}
+                className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-full`}
               />
             </div>
 

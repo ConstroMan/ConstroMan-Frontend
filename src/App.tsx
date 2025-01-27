@@ -1,14 +1,16 @@
 import React from 'react'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom'
-import { CompanyLogin } from './components/CompanyLogin.tsx'
-import { CompanySignup } from './components/CompanySignup.tsx'
-import { ProjectSelector } from './components/ProjectSelector.tsx'
+import { CompanyLogin } from './components/CompanyLogin'
+import { CompanySignup } from './components/CompanySignup'
+import { ProjectSelector } from './components/ProjectSelector'
 import { ProjectDetails } from './components/ProjectDetails'
+import { PaymentGateway } from './components/PaymentGateway'
+import { PaymentGuard } from './components/PaymentGuard'
+import Chat from './components/Chat'
 import './index.css'
-import Chat from './components/Chat.tsx'
-import { AnimatePresence } from 'framer-motion';
-import { ThemeProvider } from './contexts/ThemeContext';
-import { ToastProvider } from './contexts/ToastContext';
+import { AnimatePresence } from 'framer-motion'
+import { ThemeProvider } from './contexts/ThemeContext'
+import { ToastProvider } from './contexts/ToastContext'
 
 const App: React.FC = () => {
   return (
@@ -18,12 +20,37 @@ const App: React.FC = () => {
           <Router>
             <div className="min-h-screen">
               <Routes>
+                {/* Public routes */}
                 <Route path="/company-login" element={<CompanyLogin />} />
                 <Route path="/company-signup" element={<CompanySignup />} />
-                <Route path="/projects" element={<ProjectSelector />} />
-                <Route path="/project/:projectId" element={<ProjectDetails />} />
-                <Route path="/chat/:projectId" element={<Chat />} />
+                <Route path="/payment" element={<PaymentGateway />} />
                 <Route path="/" element={<CompanyLogin />} />
+
+                {/* Protected routes that require payment */}
+                <Route
+                  path="/projects"
+                  element={
+                    <PaymentGuard>
+                      <ProjectSelector />
+                    </PaymentGuard>
+                  }
+                />
+                <Route
+                  path="/project/:projectId"
+                  element={
+                    <PaymentGuard>
+                      <ProjectDetails />
+                    </PaymentGuard>
+                  }
+                />
+                <Route
+                  path="/chat/:projectId"
+                  element={
+                    <PaymentGuard>
+                      <Chat />
+                    </PaymentGuard>
+                  }
+                />
               </Routes>
             </div>
           </Router>

@@ -95,7 +95,7 @@ export default function SavedPromptsDialog({ isOpen, onClose, onSelectPrompt, pr
                     placeholder="Search prompts..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-300 w-5 h-5" />
                 </div>
@@ -103,20 +103,27 @@ export default function SavedPromptsDialog({ isOpen, onClose, onSelectPrompt, pr
                 {/* Prompts List */}
                 <div className="max-h-60 overflow-y-auto">
                   {filteredPrompts.length > 0 ? (
-                    filteredPrompts.map(prompt => (
-                      <button
-                        key={prompt.id}
-                        onClick={() => handleSelectPrompt(prompt)}
-                        className="w-full text-left px-4 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 group relative"
-                      >
-                        <div className="text-sm text-gray-600 dark:text-gray-300 pr-8">{prompt.content}</div>
+                    filteredPrompts.map((prompt, index) => (
+                      <React.Fragment key={prompt.id}>
+                        {index > 0 && <div className="border-t border-gray-200 dark:border-gray-700 my-1" />}
                         <button
-                          onClick={(e) => handleDelete(prompt.id, e)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
+                          onClick={() => handleSelectPrompt(prompt)}
+                          className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 group relative"
                         >
-                          <Trash2 className="w-4 h-4 text-red-500" />
+                          <div className="flex items-start gap-2">
+                            <span className="text-sm font-medium text-gray-400 dark:text-gray-500 min-w-[20px]">
+                              {index + 1}.
+                            </span>
+                            <div className="text-sm text-gray-600 dark:text-gray-300 pr-8">{prompt.content}</div>
+                          </div>
+                          <button
+                            onClick={(e) => handleDelete(prompt.id, e)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
                         </button>
-                      </button>
+                      </React.Fragment>
                     ))
                   ) : (
                     <div className="text-center text-gray-500 dark:text-gray-400">

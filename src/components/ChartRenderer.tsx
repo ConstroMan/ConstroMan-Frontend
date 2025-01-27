@@ -8,6 +8,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
 import { ERROR_MESSAGES } from '../constants/errorMessages';
 import jsPDF from 'jspdf';
+import LightLogo from '../assets/images/Logo_Full_Light_mode-removebg-preview.png';
+import DarkLogo from '../assets/images/Logo_Full_Dark_Mode-removebg-preview.png';
 
 interface ChartRendererProps {
   dashboard: Dashboard;
@@ -17,11 +19,52 @@ interface ChartRendererProps {
   downloadType?: 'image' | 'excel' | 'pdf';
 }
 
-const downloadChartAsPNG = async (chartId: string, fileName: string) => {
+const addWatermark = async (canvas: HTMLCanvasElement, isDarkMode: boolean): Promise<HTMLCanvasElement> => {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+
+  // Load the appropriate logo
+  const logoPath = isDarkMode ? DarkLogo : LightLogo;
+  
+  return new Promise((resolve) => {
+    const logo = new Image();
+    logo.onload = () => {
+      // Calculate logo dimensions (30% of canvas width)
+      const logoWidth = canvas.width * 0.3;
+      const logoHeight = (logo.height / logo.width) * logoWidth;
+
+      // Calculate center position
+      const x = (canvas.width - logoWidth) / 2;
+      const y = (canvas.height - logoHeight) / 2;
+
+      // Save current context state
+      ctx.save();
+      
+      // Set composite operation to draw on top
+      ctx.globalCompositeOperation = 'source-over';
+      
+      // Set transparency
+      ctx.globalAlpha = 0.1;
+      
+      // Draw logo in center
+      ctx.drawImage(logo, x, y, logoWidth, logoHeight);
+      
+      // Restore context state
+      ctx.restore();
+
+      resolve(canvas);
+    };
+    logo.src = logoPath;
+  });
+};
+
+const downloadChartAsPNG = async (chartId: string, fileName: string, isDarkMode: boolean) => {
   const chartElement = document.getElementById(chartId);
   if (chartElement) {
     try {
-      const canvas = await html2canvas(chartElement);
+      let canvas = await html2canvas(chartElement);
+      canvas = await addWatermark(canvas, isDarkMode);
+      
       const link = document.createElement('a');
       link.href = canvas.toDataURL('image/png');
       link.download = `${fileName}.png`;
@@ -44,16 +87,18 @@ const downloadTableAsXLSX = (dashboard: Dashboard, fileName: string) => {
   }
 };
 
-const downloadChartAsPDF = async (chartId: string, fileName: string) => {
+const downloadChartAsPDF = async (chartId: string, fileName: string, isDarkMode: boolean) => {
   const chartElement = document.getElementById(chartId);
   if (chartElement) {
     try {
-      const canvas = await html2canvas(chartElement, {
+      let canvas = await html2canvas(chartElement, {
         scale: 2,
         logging: false,
         useCORS: true,
         allowTaint: true
       });
+      
+      canvas = await addWatermark(canvas, isDarkMode);
       
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
@@ -259,13 +304,20 @@ const isValidDashboardData = (dashboard: Dashboard): boolean => {
         dashboard.Row_data
       );
     case 'DoubleBarChart':
-    case 'DualColorLineChart':
       return Boolean(
         dashboard.X_axis_data &&
         dashboard.Y_axis_data &&
-        dashboard.Y_axis_data_secondary &&
         dashboard.X_axis_label &&
         dashboard.Y_axis_label
+      );
+    case 'DualLineChart':
+      return Boolean(
+        dashboard.X_axis_data &&
+        dashboard.Y_axis_data &&
+        dashboard.X_axis_label &&
+        dashboard.Y_axis_label &&
+        // Forecasted data is optional for DualLineChart
+        (dashboard.Forecasted_Y_axis_data === null || Array.isArray(dashboard.Forecasted_Y_axis_data))
       );
     default:
       return false;
@@ -286,11 +338,13 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
   const [isResizing, setIsResizing] = useState(false);
   const resizeTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const chartColors = useMemo(() => getChartColors(isDarkMode), [isDarkMode]);
+  const isValid = useMemo(() => isValidDashboardData(dashboard), [dashboard]);
   
-  if (!isValidDashboardData(dashboard)) {
-    showToast(ERROR_MESSAGES.VALIDATION_ERROR, 'error');
-    return null;
-  }
+  useEffect(() => {
+    if (!isValid) {
+      showToast('Invalid chart data', 'error');
+    }
+  }, [isValid, showToast]);
 
   const handleChartError = (err: any) => {
     showToast(ERROR_MESSAGES.SERVER_ERROR, 'error');
@@ -330,7 +384,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
     ...commonOptions,
     responsive: true,
     maintainAspectRatio: false,
-    color: chartColors.text,
+    color: isDarkMode ? '#ffffff' : '#1e293b',
     scales: {
       y: {
         ...commonOptions.scales.y,
@@ -339,11 +393,11 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
           borderColor: chartColors.grid
         },
         ticks: {
-          color: chartColors.text
+          color: isDarkMode ? '#ffffff' : '#1e293b'
         },
         title: {
           ...commonOptions.scales.y.title,
-          color: chartColors.text
+          color: isDarkMode ? '#ffffff' : '#1e293b'
         }
       },
       x: {
@@ -353,11 +407,11 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
           borderColor: chartColors.grid
         },
         ticks: {
-          color: chartColors.text
+          color: isDarkMode ? '#ffffff' : '#1e293b'
         },
         title: {
           ...commonOptions.scales.x.title,
-          color: chartColors.text
+          color: isDarkMode ? '#ffffff' : '#1e293b'
         }
       }
     },
@@ -390,17 +444,21 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
         if (dashboard.Type === 'Table') {
           await downloadTableAsXLSX(dashboard, dashboard.Name);
         } else {
-          await downloadChartAsPNG(chartId, dashboard.Name);
+          await downloadChartAsPNG(chartId, dashboard.Name, isDarkMode);
         }
         break;
       case 'excel':
         await downloadTableAsXLSX(dashboard, dashboard.Name);
         break;
       case 'pdf':
-        await downloadChartAsPDF(chartId, dashboard.Name);
+        await downloadChartAsPDF(chartId, dashboard.Name, isDarkMode);
         break;
     }
   };
+
+  if (!isValid) {
+    return null;
+  }
 
   return (
     <div className="w-full relative" style={{ height: dimensions ? '100%' : '400px' }}>
@@ -463,10 +521,30 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
                         },
                         fill: true,
                         tension: 0.4,
-                        pointRadius: 5,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
                       }]
                     }}
-                    options={chartOptions}
+                    options={{
+                      ...chartOptions,
+                      scales: {
+                        ...chartOptions.scales,
+                        y: {
+                          ...chartOptions.scales.y,
+                          title: {
+                            ...chartOptions.scales.y.title,
+                            text: dashboard.Y_axis_label
+                          }
+                        },
+                        x: {
+                          ...chartOptions.scales.x,
+                          title: {
+                            ...chartOptions.scales.x.title,
+                            text: dashboard.X_axis_label
+                          }
+                        }
+                      }
+                    }}
                   />
                 </div>
               );
@@ -685,22 +763,109 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
                 </div>
               );
 
-            case 'DualColorLineChart':
+            case 'DualLineChart':
               return (
                 <div style={chartContainerStyle}>
                   <Line
                     data={{
                       labels: dashboard.X_axis_data.map(String),
-                      datasets: [{
-                        label: dashboard.Y_axis_label,
-                        data: dashboard.Y_axis_data,
-                        borderColor: dashboard.Y_axis_data.map((_, i) => chartColors.primary[i % chartColors.primary.length]), // Multicolor line
-                        backgroundColor: 'rgba(0, 0, 0, 0)', // Transparent background
-                        tension: 0.1,
-                        pointRadius: 5,
-                      }]
+                      datasets: [
+                        {
+                          label: 'Cumulative Probable P2 Budgeted Cost',
+                          data: dashboard.Y_axis_data,
+                          borderColor: isDarkMode ? 'rgb(94, 234, 212)' : 'rgb(13, 148, 136)',
+                          backgroundColor: (context) => {
+                            const chart = context.chart;
+                            const {ctx, chartArea} = chart;
+                            if (!chartArea) return isDarkMode ? 'rgba(94, 234, 212, 0.1)' : 'rgba(13, 148, 136, 0.1)';
+                            
+                            const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+                            if (isDarkMode) {
+                              gradient.addColorStop(0, 'rgba(94, 234, 212, 0.1)');
+                              gradient.addColorStop(1, 'rgba(94, 234, 212, 0.4)');
+                            } else {
+                              gradient.addColorStop(0, 'rgba(13, 148, 136, 0.1)');
+                              gradient.addColorStop(1, 'rgba(13, 148, 136, 0.4)');
+                            }
+                            return gradient;
+                          },
+                          fill: true,
+                          tension: 0.4,
+                          pointRadius: 4,
+                          pointHoverRadius: 6,
+                        },
+                        {
+                          label: 'Cumulative Actual Cost',
+                          data: dashboard.Y_axis_data_secondary,
+                          borderColor: isDarkMode ? 'rgb(244, 63, 94)' : 'rgb(225, 29, 72)',
+                          backgroundColor: (context) => {
+                            const chart = context.chart;
+                            const {ctx, chartArea} = chart;
+                            if (!chartArea) return isDarkMode ? 'rgba(244, 63, 94, 0.1)' : 'rgba(225, 29, 72, 0.1)';
+                            
+                            const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+                            if (isDarkMode) {
+                              gradient.addColorStop(0, 'rgba(244, 63, 94, 0.1)');
+                              gradient.addColorStop(1, 'rgba(244, 63, 94, 0.4)');
+                            } else {
+                              gradient.addColorStop(0, 'rgba(225, 29, 72, 0.1)');
+                              gradient.addColorStop(1, 'rgba(225, 29, 72, 0.4)');
+                            }
+                            return gradient;
+                          },
+                          fill: true,
+                          tension: 0.4,
+                          pointRadius: 4,
+                          pointHoverRadius: 6,
+                        }
+                      ]
                     }}
-                    options={chartOptions}
+                    options={{
+                      ...chartOptions,
+                      plugins: {
+                        ...chartOptions.plugins,
+                        legend: {
+                          position: 'right' as const,
+                          align: 'start' as const,
+                          labels: {
+                            usePointStyle: true,
+                            pointStyle: 'circle',
+                            padding: 20,
+                            font: {
+                              size: 11
+                            },
+                            color: isDarkMode ? '#ffffff' : '#1e293b',
+                            generateLabels: (chart) => {
+                              const datasets = chart.data.datasets;
+                              return datasets.map((dataset) => ({
+                                text: dataset.label || '',
+                                fillStyle: typeof dataset.borderColor === 'string' ? dataset.borderColor : undefined,
+                                strokeStyle: typeof dataset.borderColor === 'string' ? dataset.borderColor : undefined,
+                                lineWidth: 1,
+                                hidden: false
+                              }));
+                            }
+                          }
+                        }
+                      },
+                      scales: {
+                        ...chartOptions.scales,
+                        y: {
+                          ...chartOptions.scales.y,
+                          title: {
+                            ...chartOptions.scales.y.title,
+                            text: 'Cost (Lacs)'
+                          }
+                        },
+                        x: {
+                          ...chartOptions.scales.x,
+                          title: {
+                            ...chartOptions.scales.x.title,
+                            text: dashboard.X_axis_label
+                          }
+                        }
+                      }
+                    }}
                   />
                 </div>
               );

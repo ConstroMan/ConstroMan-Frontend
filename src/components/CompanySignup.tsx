@@ -11,40 +11,182 @@ import { useToast } from '../contexts/ToastContext';
 import { ERROR_MESSAGES } from '../constants/errorMessages';
 
 export const CompanySignup: React.FC = () => {
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    contact: '',
+    address: '',
+    officePhone: '',
+    website: ''
+  });
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const { currentTheme, setCurrentTheme } = useTheme();
-  const themeStyles = themes[currentTheme]
-  const navigate = useNavigate()
+  const themeStyles = themes[currentTheme];
+  const navigate = useNavigate();
   const { showToast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePassword = (password: string) => {
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    const isLongEnough = password.length >= 8;
+
+    if (!isLongEnough) return "Password must be at least 8 characters long";
+    if (!hasUpperCase) return "Password must contain at least one uppercase letter";
+    if (!hasLowerCase) return "Password must contain at least one lowercase letter";
+    if (!hasNumbers) return "Password must contain at least one number";
+    if (!hasSpecialChar) return "Password must contain at least one special character";
+    return "";
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
     
-    if (!name.trim()) {
-      showToast('Company name is required', 'error');
+    switch (name) {
+      case 'email':
+        if (!value) {
+          setErrors(prev => ({ ...prev, email: 'Email is required' }));
+        } else if (!validateEmail(value)) {
+          setErrors(prev => ({ ...prev, email: 'Please enter a valid email address' }));
+        } else {
+          setErrors(prev => ({ ...prev, email: '' }));
+        }
+        break;
+
+      case 'password':
+        const passwordError = validatePassword(value);
+        setErrors(prev => ({ ...prev, password: passwordError }));
+        // Also validate confirm password if it exists
+        if (formData.confirmPassword) {
+          setErrors(prev => ({
+            ...prev,
+            confirmPassword: value !== formData.confirmPassword ? 'Passwords do not match' : ''
+          }));
+        }
+        break;
+
+      case 'confirmPassword':
+        setErrors(prev => ({
+          ...prev,
+          confirmPassword: value !== formData.password ? 'Passwords do not match' : ''
+        }));
+        break;
+
+      case 'contact':
+        if (!value) {
+          setErrors(prev => ({ ...prev, contact: 'Contact number is required' }));
+        } else if (!/^\+?[\d\s-]{10,}$/.test(value)) {
+          setErrors(prev => ({ ...prev, contact: 'Please enter a valid contact number' }));
+        } else {
+          setErrors(prev => ({ ...prev, contact: '' }));
+        }
+        break;
+
+      case 'name':
+        if (!value.trim()) {
+          setErrors(prev => ({ ...prev, name: 'Company name is required' }));
+        } else {
+          setErrors(prev => ({ ...prev, name: '' }));
+        }
+        break;
+
+      case 'address':
+        if (!value.trim()) {
+          setErrors(prev => ({ ...prev, address: 'Office address is required' }));
+        } else {
+          setErrors(prev => ({ ...prev, address: '' }));
+        }
+        break;
+
+      default:
+        if (errors[name]) {
+          setErrors(prev => ({ ...prev, [name]: '' }));
+        }
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+
+    // Company name validation
+    if (!formData.name.trim()) {
+      newErrors.name = 'Company name is required';
+    }
+
+    // Email validation
+    if (!formData.email) {
+      newErrors.email = 'Email is required';
+    } else if (!validateEmail(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+
+    // Password validation
+    const passwordError = validatePassword(formData.password);
+    if (passwordError) {
+      newErrors.password = passwordError;
+    }
+
+    // Confirm password validation
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    // Contact validation
+    if (!formData.contact) {
+      newErrors.contact = 'Contact number is required';
+    } else if (!/^\+?[\d\s-]{10,}$/.test(formData.contact)) {
+      newErrors.contact = 'Please enter a valid contact number';
+    }
+
+    // Address validation
+    if (!formData.address.trim()) {
+      newErrors.address = 'Office address is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
       return;
     }
 
     try {
-      await companySignup({ name, email, password });
+      await companySignup({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        contact: formData.contact,
+        address: formData.address,
+        office_phone: formData.officePhone,
+        website: formData.website
+      });
       showToast('Registration successful! Please log in.', 'success');
       navigate('/company-login');
     } catch (err: any) {
       showToast(err.message || ERROR_MESSAGES.VALIDATION_ERROR, 'error');
     }
-  }
+  };
 
   return (
-    <div 
-      className={`min-h-screen flex items-center justify-center ${themeStyles.background}`}
-      style={{ 
-        backgroundImage: currentTheme === 'light' ? `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.25' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` : 'none',
-        backgroundBlendMode: 'soft-light',
-        opacity: 0.98
-      }}
-    >
+    <div className={`min-h-screen flex flex-col items-center justify-center ${themeStyles.background}`}>
+      {/* Logo above dialog */}
+      <div className="mb-8">
+        <img src="Logo.png" alt="ConstroMan Logo" className="h-16 w-auto" />
+      </div>
+
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -99,31 +241,90 @@ export const CompanySignup: React.FC = () => {
               type="text"
               required
               placeholder="Company Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor}`}
+              value={formData.name}
+              onChange={handleInputChange}
+              className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.name ? 'border-red-500' : ''}`}
             />
+            {errors.name && <p className="text-red-500 text-xs">{errors.name}</p>}
+
             <Input
               id="email-address"
               name="email"
               type="email"
-              autoComplete="email"
               required
               placeholder="Email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor}`}
+              value={formData.email}
+              onChange={handleInputChange}
+              className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.email ? 'border-red-500' : ''}`}
             />
+            {errors.email && <p className="text-red-500 text-xs">{errors.email}</p>}
+
             <Input
               id="password"
               name="password"
               type="password"
-              autoComplete="new-password"
               required
               placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor}`}
+              value={formData.password}
+              onChange={handleInputChange}
+              className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.password ? 'border-red-500' : ''}`}
+            />
+            {errors.password && <p className="text-red-500 text-xs">{errors.password}</p>}
+
+            <Input
+              id="confirm-password"
+              name="confirmPassword"
+              type="password"
+              required
+              placeholder="Confirm Password"
+              value={formData.confirmPassword}
+              onChange={handleInputChange}
+              className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.confirmPassword ? 'border-red-500' : ''}`}
+            />
+            {errors.confirmPassword && <p className="text-red-500 text-xs">{errors.confirmPassword}</p>}
+
+            <Input
+              id="contact"
+              name="contact"
+              type="tel"
+              required
+              placeholder="Contact Number"
+              value={formData.contact}
+              onChange={handleInputChange}
+              className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.contact ? 'border-red-500' : ''}`}
+            />
+            {errors.contact && <p className="text-red-500 text-xs">{errors.contact}</p>}
+
+            <Input
+              id="address"
+              name="address"
+              type="text"
+              required
+              placeholder="Office Address"
+              value={formData.address}
+              onChange={handleInputChange}
+              className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.address ? 'border-red-500' : ''}`}
+            />
+            {errors.address && <p className="text-red-500 text-xs">{errors.address}</p>}
+
+            <Input
+              id="office-phone"
+              name="officePhone"
+              type="tel"
+              placeholder="Office Phone (Optional)"
+              value={formData.officePhone}
+              onChange={handleInputChange}
+              className={`${themeStyles.inputBg} ${themeStyles.text}`}
+            />
+
+            <Input
+              id="website"
+              name="website"
+              type="url"
+              placeholder="Company Website (Optional)"
+              value={formData.website}
+              onChange={handleInputChange}
+              className={`${themeStyles.inputBg} ${themeStyles.text}`}
             />
           </div>
 

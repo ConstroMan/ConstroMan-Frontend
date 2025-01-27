@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { getProjects, addProject } from '../services/api';
-import { ChevronLeft, Loader2, Sun, Moon } from 'lucide-react';
+import { ChevronLeft, Loader2, Sun, Moon, LayoutGrid, List, PlusCircle } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Theme, themes } from '../utils/theme';
 import { Dialog } from './ui/Dialog'
@@ -36,6 +36,8 @@ export function ProjectSelector() {
   const [error, setError] = useState<string>('');
   const [isAddProjectDialogOpen, setIsAddProjectDialogOpen] = useState(false)
   const { showToast } = useToast();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
   useEffect(() => {
     const storedUserType = localStorage.getItem('userType') as 'company' | 'employee' | null;
@@ -99,6 +101,10 @@ export function ProjectSelector() {
     }
   }
 
+  const filteredProjects = projects.filter(project => 
+    project.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <AnimatePresence>
       <motion.div 
@@ -112,6 +118,17 @@ export function ProjectSelector() {
           opacity: 0.98
         }}
       >
+        <div className="fixed top-4 left-0 w-72">
+          <img 
+            src={currentTheme === 'dark' 
+              ? '/src/assets/images/Logo_Full_Dark_Mode-removebg-preview.png'
+              : '/src/assets/images/Logo_Full_Light_mode-removebg-preview.png'
+            } 
+            alt="ConstroMan Logo" 
+            className="w-full h-auto"
+          />
+        </div>
+
         <motion.div 
           className={`max-w-md w-full space-y-8 ${themeStyles.cardBg} p-10 rounded-xl shadow-2xl relative`}
           initial={{ y: 20, opacity: 0 }}
@@ -157,33 +174,109 @@ export function ProjectSelector() {
             </p>
           </div>
 
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <Input
+                type="search"
+                placeholder="Search projects..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`flex-1 mr-4 ${themeStyles.inputBg}`}
+              />
+              
+              <div className={`flex rounded-lg ${themeStyles.cardBg} p-1`}>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-2 rounded ${
+                    viewMode === 'list' 
+                      ? `${themeStyles.buttonBg} ${themeStyles.buttonText}` 
+                      : themeStyles.subtext
+                  }`}
+                >
+                  <List className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-2 rounded ${
+                    viewMode === 'grid' 
+                      ? `${themeStyles.buttonBg} ${themeStyles.buttonText}` 
+                      : themeStyles.subtext
+                  }`}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {userType === 'company' && (
+            <Button
+              onClick={() => setIsAddProjectDialogOpen(true)}
+              className={`
+                w-full
+                rounded-xl
+                ${themeStyles.buttonBg} 
+                ${themeStyles.buttonText} 
+                ${themeStyles.buttonHoverBg}
+                transition-all duration-200
+                hover:scale-102
+                hover:shadow-md
+                active:scale-98
+                flex items-center justify-center
+                p-4
+                border-2 border-dashed
+              `}
+            >
+              <PlusCircle className="w-4 h-4 mr-2" />
+              <span className="text-center">Add a New Project</span>
+            </Button>
+          )}
+
           {error && <p className="text-red-500 text-center">{error}</p>}
 
-          <div className="space-y-3">
-            {projects.map((project) => (
-              <Button
-                key={project.id}
-                onClick={() => handleProjectSelect(project.id)}
-                className={`w-full ${themeStyles.buttonBg} ${themeStyles.buttonText} ${themeStyles.buttonHoverBg} transition-colors duration-200`}
-              >
-                {project.name}
-              </Button>
-            ))}
-
-            {userType === 'company' && (
-              <Button
-                onClick={() => setIsAddProjectDialogOpen(true)}
-                className={`w-full ${themeStyles.buttonBg} ${themeStyles.buttonText} ${themeStyles.buttonHoverBg} transition-colors duration-200`}
-              >
-                Add a New Project
-              </Button>
-            )}
+          <div className="space-y-6">
+            <div className={`
+              ${viewMode === 'grid' 
+                ? 'grid grid-cols-2 gap-3'
+                : 'space-y-3'
+              }`}
+            >
+              {filteredProjects.map((project) => (
+                <Button
+                  key={project.id}
+                  onClick={() => handleProjectSelect(project.id)}
+                  className={`
+                    ${viewMode === 'grid' 
+                      ? `h-28 flex-col justify-start p-4 rounded-xl text-left`
+                      : `w-full rounded-full`
+                    }
+                    ${themeStyles.buttonBg} 
+                    ${themeStyles.buttonText} 
+                    ${themeStyles.buttonHoverBg}
+                    transition-all duration-200
+                    hover:scale-102
+                    hover:shadow-md
+                    active:scale-98
+                    flex items-start
+                  `}
+                >
+                  {viewMode === 'grid' ? (
+                    <>
+                      <h3 className="text-base font-semibold mb-1">{project.name}</h3>
+                      <p className={`text-xs ${themeStyles.subtext}`}>Click to view details</p>
+                    </>
+                  ) : (
+                    <span>{project.name}</span>
+                  )}
+                </Button>
+              ))}
+            </div>
           </div>
         </motion.div>
 
         {/* Add Project Dialog */}
         <Dialog open={isAddProjectDialogOpen} onOpenChange={setIsAddProjectDialogOpen}>
-          <Dialog.Content className={`${themeStyles.cardBg} border ${currentTheme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
+          <Dialog.Content className={`${themeStyles.cardBg} border ${currentTheme === 'dark' ? 'border-gray-700' : 'border-gray-200'} rounded-xl`}>
             <Dialog.Header>
               <Dialog.Title className={`${themeStyles.text} text-xl font-semibold`}>
                 Add New Project

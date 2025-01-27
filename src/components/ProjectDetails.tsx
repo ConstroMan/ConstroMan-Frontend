@@ -297,6 +297,18 @@ export function ProjectDetails() {
           opacity: 0.98
         }}
       >
+        {/* Update Logo section */}
+        <div className="fixed top-4 left-0 w-72">
+          <img 
+            src={currentTheme === 'dark' 
+              ? '/src/assets/images/Logo_Full_Dark_Mode-removebg-preview.png'
+              : '/src/assets/images/Logo_Full_Light_mode-removebg-preview.png'
+            } 
+            alt="ConstroMan Logo" 
+            className="w-full h-auto"
+          />
+        </div>
+
         <div className="max-w-6xl mx-auto">
           <div className="flex justify-between items-center mb-8">
             <div className="flex items-center space-x-4">

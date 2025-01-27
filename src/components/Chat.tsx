@@ -29,6 +29,7 @@ import { ChartRenderer } from './ChartRenderer.tsx'
 import { NavBar } from './NavBar';
 import { Menu, Transition } from '@headlessui/react'
 import SavedPromptsDialog from './SavedPromptsDialog'
+import { ScenarioSection } from './ScenarioSection';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -59,15 +60,28 @@ type Dashboard = {
   Forecasted_X_axis_data?: string[];
   Forecasted_Y_axis_data?: number[];
   Y_axis_data_secondary?: number[];
+  is_prediction?: boolean;
 }
 
+// Update Scenario type to match new schema
+type Scenario = {
+  id: string;
+  description: string;
+  probability: number;
+  impact: 'High' | 'Medium' | 'Low';
+  insights: string[];
+  dashboards: Dashboard[];
+}
+
+// Update Message type to include scenarios
 type Message = {
   id: string;
   role: 'user' | 'ai';
   content: string;
   timestamp: Date;
   isLoading?: boolean;
-  dashboards?: Dashboard[]; // Add dashboards property
+  dashboards?: Dashboard[];
+  scenarios?: Scenario[]; // Add scenarios field
 }
 
 type DashboardItem = {
@@ -84,9 +98,13 @@ type DashboardLayout = {
   h: number;
 };
 
+
+
+// Update formatMessage function to handle new scenario format
 const formatMessage = (content: any) => {
   let parsedContent: string = '';
-  let dashboards: Dashboard[] = []; // Change to handle multiple dashboards
+  let dashboards: Dashboard[] = [];
+  let scenarios: Scenario[] = [];
 
   // If it's the initial message or any non-API response, use it directly
   if (typeof content === 'string' && !content.includes('response":')) {
@@ -114,7 +132,35 @@ const formatMessage = (content: any) => {
           Row_data: dashboardData.Row_data || [],
           Forecasted_X_axis_data: dashboardData.Forecasted_X_axis_data || [],
           Forecasted_Y_axis_data: dashboardData.Forecasted_Y_axis_data || [],
-          Y_axis_data_secondary: dashboardData.Y_axis_data_secondary || []
+          Y_axis_data_secondary: dashboardData.Y_axis_data_secondary || [],
+          is_prediction: dashboardData.is_prediction || false
+        }));
+      }
+
+      // Handle scenarios from response
+      if (jsonData.Scenarios) {
+        scenarios = jsonData.Scenarios.map(scenario => ({
+          id: scenario.id,
+          description: scenario.description,
+          probability: scenario.probability,
+          impact: scenario.impact,
+          insights: scenario.insights || [],
+          dashboards: scenario.Dashboard.map(dashboardData => ({
+            Name: dashboardData.Name,
+            Type: dashboardData.Type as Dashboard['Type'],
+            X_axis_label: dashboardData.X_axis_label || '',
+            Y_axis_label: dashboardData.Y_axis_label || '',
+            X_axis_data: dashboardData.X_axis_data || [],
+            Y_axis_data: dashboardData.Y_axis_data || [],
+            labels: dashboardData.Labels || [],
+            Values: dashboardData.Values || [],
+            Column_headers: dashboardData.Column_headers || [],
+            Row_data: dashboardData.Row_data || [],
+            Forecasted_X_axis_data: dashboardData.Forecasted_X_axis_data || [],
+            Forecasted_Y_axis_data: dashboardData.Forecasted_Y_axis_data || [],
+            Y_axis_data_secondary: dashboardData.Y_axis_data_secondary || [],
+            is_prediction: dashboardData.is_prediction || false
+          }))
         }));
       }
     } catch (e) {
@@ -174,7 +220,8 @@ const formatMessage = (content: any) => {
         })}
       </div>
     ),
-    dashboards // Return the array of dashboards
+    dashboards,
+    scenarios
   };
 };
 
@@ -1298,40 +1345,43 @@ export default function Chat() {
                     )}
 
                     {formattedMessage.dashboards && formattedMessage.dashboards.length > 0 && (
-  <div className="mt-10 w-full">
-    <div className="relative w-full flex flex-col">
-      {/* Header section with right-aligned dropdown */}
-      <div className="w-full flex justify-end mb-2">
-        <div className="relative inline-block">
-          <select
-            value={selectedDashboardIndex}
-            onChange={(e) => setSelectedDashboardIndex(Number(e.target.value))}
-            className="rounded-full p-2 inline-block appearance-none text-center bg-white border border-gray-300 shadow-lg p-2 pr-6" // Reduced padding-right
-            style={{ minWidth: 'max-content', width: 'auto' }}
-          >
-            {formattedMessage.dashboards.map((dashboard, index) => (
-              <option key={index} value={index}>
-                {dashboard.Name}
-              </option>
-            ))}
-          </select>
-          {/* ChevronDown Icon */}
-          <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none w-4" />
-        </div>
-      </div>
+                      <div className="mt-10 w-full">
+                        <div className="relative w-full flex flex-col">
+                          {/* Header section with right-aligned dropdown */}
+                          <div className="w-full flex justify-end mb-2">
+                            <div className="relative inline-block">
+                              <select
+                                value={selectedDashboardIndex}
+                                onChange={(e) => setSelectedDashboardIndex(Number(e.target.value))}
+                                className="rounded-full p-2 inline-block appearance-none text-center bg-white border border-gray-300 shadow-lg p-2 pr-6" // Reduced padding-right
+                                style={{ minWidth: 'max-content', width: 'auto' }}
+                              >
+                                {formattedMessage.dashboards.map((dashboard, index) => (
+                                  <option key={index} value={index}>
+                                    {dashboard.Name}
+                                  </option>
+                                ))}
+                              </select>
+                              {/* ChevronDown Icon */}
+                              <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none w-4" />
+                            </div>
+                          </div>
 
-      {/* Chart section */}
-      <div className="w-full">
-        <ChartRenderer 
-          dashboard={formattedMessage.dashboards[selectedDashboardIndex]}
-          hideDownload={false}
-        />
-      </div>
-    </div>
-  </div>
-)}
+                          {/* Chart section */}
+                          <div className="w-full">
+                            <ChartRenderer 
+                              dashboard={formattedMessage.dashboards[selectedDashboardIndex]}
+                              hideDownload={false}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
-
+                    {/* Add scenarios section if present */}
+                    {message.role === 'ai' && formattedMessage.scenarios && formattedMessage.scenarios.length > 0 && (
+                      <ScenarioSection scenarios={formattedMessage.scenarios} theme={currentTheme} />
+                    )}
                   </motion.div>
                 );
               })}
@@ -1414,6 +1464,7 @@ export default function Chat() {
     </AnimatePresence>
   );
 }
+
 function toast(arg0: { title: string; description: string; variant: string }) {
   throw new Error('Function not implemented.')
 }

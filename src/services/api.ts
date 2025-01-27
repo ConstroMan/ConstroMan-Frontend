@@ -150,20 +150,24 @@ export const companyLogin = async (email: string, password: string) => {
 }
 
 export const companySignup = async (companyData: {
-  name: string
-  email: string
-  password: string
+  name: string;
+  email: string;
+  password: string;
+  contact: string;
+  address: string;
+  office_phone?: string;
+  website?: string;
 }) => {
   try {
-    const response = await api.post('/api/company/signup', companyData)
-    return response.data
+    const response = await api.post('/api/company/signup', companyData);
+    return response.data;
   } catch (error) {
     if (error.response) {
-      throw error.response.data
+      throw error.response.data;
     }
-    throw error
+    throw error;
   }
-}
+};
 
 export const addCompanyUser = async (userData: {
   name: string
@@ -630,16 +634,19 @@ export const updateDashboardLayout = async (
 
 export const getPaymentStatus = async () => {
   try {
+    console.log('Calling getPaymentStatus API...');
     const response = await api.get('/api/subscription/status');
+    console.log('Payment status API response:', response.data);
     return response.data;
   } catch (error) {
+    console.error('getPaymentStatus error:', error);
     throw error;
   }
 };
 
 export const initiateSubscription = async () => {
   try {
-    const response = await api.post('/api/subscription/create');
+    const response = await api.post('/api/subscription/create-order');
     return response.data;
   } catch (error) {
     throw error;
@@ -648,7 +655,7 @@ export const initiateSubscription = async () => {
 
 export const verifyPayment = async (paymentData: {
   razorpay_payment_id: string;
-  razorpay_subscription_id: string;
+  razorpay_order_id: string;
   razorpay_signature: string;
 }) => {
   try {
@@ -663,16 +670,14 @@ export const verifyPayment = async (paymentData: {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-      // Clear local storage
-      localStorage.removeItem('token');
-      localStorage.removeItem('userType');
+    if (error.code === 'ECONNABORTED' || error.message.includes('timeout') || error?.response?.status === 401) {
+      // Clear all stored data
+      localStorage.clear();
+      sessionStorage.clear();
       
-      // Redirect to appropriate login page based on user type
-      const userType = localStorage.getItem('userType');
-      const redirectPath = userType === 'company' ? '/company-login' : '/login';
+      // Redirect to company login
+      window.location.href = '/company-login';
       
-      window.location.href = redirectPath;
       return Promise.reject({
         message: ERROR_MESSAGES.SESSION_TIMEOUT
       });

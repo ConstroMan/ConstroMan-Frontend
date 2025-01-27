@@ -1,8 +1,9 @@
 export type Dashboard = {
   Name: string;
-  Type: 'LineChart' | 'BarChart' | 'PieChart' | 'DonutChart' | 'ScatterPlot' | 'Histogram' | 'Table' | 'DoubleBarChart' | 'DualColorLineChart';
+  Type: 'LineChart' | 'BarChart' | 'PieChart' | 'DonutChart' | 'ScatterPlot' | 'Histogram' | 'Table' | 'DoubleBarChart' | 'DualColorLineChart' | 'DualLineChart';
   X_axis_label: string;
   Y_axis_label: string;
+  Y_axis_label_secondary?: string;
   X_axis_data: string[] | number[];
   Y_axis_data: string[] | number[];
   labels: string[];
