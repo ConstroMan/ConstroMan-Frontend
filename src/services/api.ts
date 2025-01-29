@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
 import { ERROR_MESSAGES } from '../constants/errorMessages';
 
-const API_URL = 'http://142.93.221.227:8000'
+const API_URL = '//142.93.221.227:8000/api'
 
 export const api = axios.create({
   baseURL: API_URL,
