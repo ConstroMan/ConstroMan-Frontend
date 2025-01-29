@@ -11,7 +11,7 @@ import { Input } from './ui/Input';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../contexts/ThemeContext';
 import { Theme, themes } from '../utils/theme'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/Tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { ChartRenderer } from './ChartRenderer.tsx';
 import { NavBar } from './NavBar';
 
