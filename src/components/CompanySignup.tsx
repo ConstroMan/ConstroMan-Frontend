@@ -2,8 +2,8 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from './ui/Button.tsx'
 import { Input } from './ui/Input.tsx'
-import { motion } from 'framer-motion'
-import { companySignup } from '../services/api.ts'
+import { motion, AnimatePresence } from 'framer-motion'
+import { companySignup, sendVerificationCode, verifyCode } from '../services/api.ts'
 import { Sun, Moon } from 'lucide-react'
 import { Theme, themes } from '../utils/theme'
 import { useTheme } from '../contexts/ThemeContext';
@@ -26,6 +26,9 @@ export const CompanySignup: React.FC = () => {
   const themeStyles = themes[currentTheme];
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const [showOtpVerification, setShowOtpVerification] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [entityId, setEntityId] = useState<number | null>(null);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -164,21 +167,102 @@ export const CompanySignup: React.FC = () => {
     }
 
     try {
-      await companySignup({
+      // Add +91<space> prefix to contact number if not already present
+      const formattedContact = formData.contact.startsWith('+91 ') 
+        ? formData.contact 
+        : formData.contact.startsWith('+91')
+          ? formData.contact.replace('+91', '+91 ')
+          : `+91 ${formData.contact}`;
+
+      // First submit company details with formatted contact
+      const signupResponse = await companySignup({
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        contact: formData.contact,
+        contact: formattedContact,
         address: formData.address,
         office_phone: formData.officePhone,
         website: formData.website
       });
-      showToast('Registration successful! Please log in.', 'success');
-      navigate('/company-login');
+      
+      setEntityId(signupResponse.id);
+      
+      // Send verification code with formatted contact
+      await sendVerificationCode(formattedContact, 'phone');
+      
+      setShowOtpVerification(true);
+      
     } catch (err: any) {
       showToast(err.message || ERROR_MESSAGES.VALIDATION_ERROR, 'error');
     }
   };
+
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!entityId) return;
+
+    try {
+      // Use formatted contact number for verification
+      const formattedContact = formData.contact.startsWith('+91 ') 
+        ? formData.contact 
+        : formData.contact.startsWith('+91')
+          ? formData.contact.replace('+91', '+91 ')
+          : `+91 ${formData.contact}`;
+
+      await verifyCode({
+        identifier: formattedContact,
+        code: otpCode,
+        entity_type: 'company',
+        entity_id: entityId,
+        type: 'phone'
+      });
+      
+      showToast('Registration successful! Please log in.', 'success');
+      navigate('/company-login');
+    } catch (err: any) {
+      showToast(err.message || 'Invalid verification code', 'error');
+    }
+  };
+
+  // Add OTP verification UI
+  const renderOtpVerification = () => (
+    <AnimatePresence>
+      {showOtpVerification && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="space-y-6"
+        >
+          <h3 className={`text-center text-xl font-bold ${themeStyles.text}`}>
+            Verify Your Phone Number
+          </h3>
+          <p className={`text-center text-sm ${themeStyles.subtext}`}>
+            We've sent a verification code to {formData.contact}
+          </p>
+          <form onSubmit={handleVerifyOTP} className="space-y-4">
+            <Input
+              id="otp-code"
+              name="otp"
+              type="text"
+              required
+              placeholder="Enter verification code"
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value)}
+              className={`${themeStyles.inputBg} ${themeStyles.text}`}
+            />
+            <Button 
+              type="submit" 
+              className={`w-full ${themeStyles.buttonBg} ${themeStyles.buttonHoverBg} ${themeStyles.buttonText}`}
+            >
+              Verify
+            </Button>
+          </form>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 
   return (
     <div className={`min-h-screen flex flex-col items-center justify-center ${themeStyles.background}`}>
@@ -233,130 +317,134 @@ export const CompanySignup: React.FC = () => {
           </p>
         </div>
         
-        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-          <div className="space-y-4">
-            <Input
-              id="company-name"
-              name="name"
-              type="text"
-              required
-              placeholder="Company Name"
-              value={formData.name}
-              onChange={handleInputChange}
-              className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.name ? 'border-red-500' : ''}`}
-            />
-            {errors.name && <p className="text-red-500 text-xs">{errors.name}</p>}
+        {showOtpVerification ? renderOtpVerification() : (
+          <>
+            <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+              <div className="space-y-4">
+                <Input
+                  id="company-name"
+                  name="name"
+                  type="text"
+                  required
+                  placeholder="Company Name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.name ? 'border-red-500' : ''}`}
+                />
+                {errors.name && <p className="text-red-500 text-xs">{errors.name}</p>}
 
-            <Input
-              id="email-address"
-              name="email"
-              type="email"
-              required
-              placeholder="Email address"
-              value={formData.email}
-              onChange={handleInputChange}
-              className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.email ? 'border-red-500' : ''}`}
-            />
-            {errors.email && <p className="text-red-500 text-xs">{errors.email}</p>}
+                <Input
+                  id="email-address"
+                  name="email"
+                  type="email"
+                  required
+                  placeholder="Email address"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.email ? 'border-red-500' : ''}`}
+                />
+                {errors.email && <p className="text-red-500 text-xs">{errors.email}</p>}
 
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              required
-              placeholder="Password"
-              value={formData.password}
-              onChange={handleInputChange}
-              className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.password ? 'border-red-500' : ''}`}
-            />
-            {errors.password && <p className="text-red-500 text-xs">{errors.password}</p>}
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  placeholder="Password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.password ? 'border-red-500' : ''}`}
+                />
+                {errors.password && <p className="text-red-500 text-xs">{errors.password}</p>}
 
-            <Input
-              id="confirm-password"
-              name="confirmPassword"
-              type="password"
-              required
-              placeholder="Confirm Password"
-              value={formData.confirmPassword}
-              onChange={handleInputChange}
-              className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.confirmPassword ? 'border-red-500' : ''}`}
-            />
-            {errors.confirmPassword && <p className="text-red-500 text-xs">{errors.confirmPassword}</p>}
+                <Input
+                  id="confirm-password"
+                  name="confirmPassword"
+                  type="password"
+                  required
+                  placeholder="Confirm Password"
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.confirmPassword ? 'border-red-500' : ''}`}
+                />
+                {errors.confirmPassword && <p className="text-red-500 text-xs">{errors.confirmPassword}</p>}
 
-            <Input
-              id="contact"
-              name="contact"
-              type="tel"
-              required
-              placeholder="Contact Number"
-              value={formData.contact}
-              onChange={handleInputChange}
-              className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.contact ? 'border-red-500' : ''}`}
-            />
-            {errors.contact && <p className="text-red-500 text-xs">{errors.contact}</p>}
+                <Input
+                  id="contact"
+                  name="contact"
+                  type="tel"
+                  required
+                  placeholder="Contact Number"
+                  value={formData.contact}
+                  onChange={handleInputChange}
+                  className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.contact ? 'border-red-500' : ''}`}
+                />
+                {errors.contact && <p className="text-red-500 text-xs">{errors.contact}</p>}
 
-            <Input
-              id="address"
-              name="address"
-              type="text"
-              required
-              placeholder="Office Address"
-              value={formData.address}
-              onChange={handleInputChange}
-              className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.address ? 'border-red-500' : ''}`}
-            />
-            {errors.address && <p className="text-red-500 text-xs">{errors.address}</p>}
+                <Input
+                  id="address"
+                  name="address"
+                  type="text"
+                  required
+                  placeholder="Office Address"
+                  value={formData.address}
+                  onChange={handleInputChange}
+                  className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.address ? 'border-red-500' : ''}`}
+                />
+                {errors.address && <p className="text-red-500 text-xs">{errors.address}</p>}
 
-            <Input
-              id="office-phone"
-              name="officePhone"
-              type="tel"
-              placeholder="Office Phone (Optional)"
-              value={formData.officePhone}
-              onChange={handleInputChange}
-              className={`${themeStyles.inputBg} ${themeStyles.text}`}
-            />
+                <Input
+                  id="office-phone"
+                  name="officePhone"
+                  type="tel"
+                  placeholder="Office Phone (Optional)"
+                  value={formData.officePhone}
+                  onChange={handleInputChange}
+                  className={`${themeStyles.inputBg} ${themeStyles.text}`}
+                />
 
-            <Input
-              id="website"
-              name="website"
-              type="url"
-              placeholder="Company Website (Optional)"
-              value={formData.website}
-              onChange={handleInputChange}
-              className={`${themeStyles.inputBg} ${themeStyles.text}`}
-            />
-          </div>
+                <Input
+                  id="website"
+                  name="website"
+                  type="url"
+                  placeholder="Company Website (Optional)"
+                  value={formData.website}
+                  onChange={handleInputChange}
+                  className={`${themeStyles.inputBg} ${themeStyles.text}`}
+                />
+              </div>
 
-          <div>
-            <Button 
-              type="submit" 
-              className={`w-full ${themeStyles.buttonBg} ${themeStyles.buttonHoverBg} ${themeStyles.buttonText}`}
-            >
-              Sign up
-            </Button>
-          </div>
-        </form>
-        
-        <div className="space-y-2">
-          <p className={`text-center text-sm ${themeStyles.subtext}`}>
-            Already have an account?{' '}
-            <Link 
-              to="/company-login" 
-              className={`font-medium ${themeStyles.linkColor} ${themeStyles.linkHoverColor}`}
-            >
-              Sign in
-            </Link>
-          </p>
-          <p className={`text-center text-sm ${themeStyles.subtext}`}>
-            <Link 
-              to="/signup" 
-              className={`font-medium ${themeStyles.linkColor} ${themeStyles.linkHoverColor}`}
-            >
-              Employee Signup
-            </Link>
-          </p>
-        </div>
+              <div>
+                <Button 
+                  type="submit" 
+                  className={`w-full ${themeStyles.buttonBg} ${themeStyles.buttonHoverBg} ${themeStyles.buttonText}`}
+                >
+                  Sign up
+                </Button>
+              </div>
+            </form>
+            
+            <div className="space-y-2">
+              <p className={`text-center text-sm ${themeStyles.subtext}`}>
+                Already have an account?{' '}
+                <Link 
+                  to="/company-login" 
+                  className={`font-medium ${themeStyles.linkColor} ${themeStyles.linkHoverColor}`}
+                >
+                  Sign in
+                </Link>
+              </p>
+              <p className={`text-center text-sm ${themeStyles.subtext}`}>
+                <Link 
+                  to="/signup" 
+                  className={`font-medium ${themeStyles.linkColor} ${themeStyles.linkHoverColor}`}
+                >
+                  Employee Signup
+                </Link>
+              </p>
+            </div>
+          </>
+        )}
       </motion.div>
     </div>
   )

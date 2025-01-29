@@ -666,6 +666,33 @@ export const verifyPayment = async (paymentData: {
   }
 };
 
+export const sendVerificationCode = async (identifier: string, type: 'phone' | 'email') => {
+  try {
+    const response = await api.post('/api/verify/send', {
+      identifier,
+      type
+    });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const verifyCode = async (data: {
+  identifier: string;
+  code: string;
+  entity_type: 'user' | 'company';
+  entity_id: number;
+  type: 'phone' | 'email';
+}) => {
+  try {
+    const response = await api.post('/api/verify/check', data);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
 // Add an interceptor to handle timeout and other errors
 api.interceptors.response.use(
   (response) => response,

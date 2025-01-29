@@ -4,17 +4,17 @@ import { Button } from './ui/Button';
 import { MessageSquare, Trash2, Loader2, Plus, Edit, BarChart2, FileSpreadsheet, ChevronLeft, Sun, Moon, DownloadIcon, Download, FileEdit, X, LineChart } from 'lucide-react';
 import { getProjectDetails, uploadFile, getProjectPL, getProjectFiles, deleteProjectFile, toggleChartPin, Dashboard, getProjectCharts, getProjectDashboardCharts, removeChartFromDashboard } from '../services/api';
 import { LineChart as RechartsLineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from 'recharts';
-import { Card, CardHeader, CardTitle, CardContent } from './ui/card.tsx';
-import { Table } from './ui/Table';
+import { Card, CardHeader, CardTitle, CardContent } from './ui/Card.tsx';
 import { Dialog } from './ui/Dialog';
 import { Label } from './ui/Label';
 import { Input } from './ui/Input';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../contexts/ThemeContext';
 import { Theme, themes } from '../utils/theme'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/Tabs';
 import { ChartRenderer } from './ChartRenderer.tsx';
 import { NavBar } from './NavBar';
+
 
 interface ProjectFile {
   id: number;

@@ -8,8 +8,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
 import { ERROR_MESSAGES } from '../constants/errorMessages';
 import jsPDF from 'jspdf';
-import LightLogo from '../assets/images/Logo_Full_Light_mode-removebg-preview.png';
-import DarkLogo from '../assets/images/Logo_Full_Dark_Mode-removebg-preview.png';
+
 
 interface ChartRendererProps {
   dashboard: Dashboard;
@@ -19,51 +18,12 @@ interface ChartRendererProps {
   downloadType?: 'image' | 'excel' | 'pdf';
 }
 
-const addWatermark = async (canvas: HTMLCanvasElement, isDarkMode: boolean): Promise<HTMLCanvasElement> => {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return canvas;
-
-  // Load the appropriate logo
-  const logoPath = isDarkMode ? DarkLogo : LightLogo;
-  
-  return new Promise((resolve) => {
-    const logo = new Image();
-    logo.onload = () => {
-      // Calculate logo dimensions (30% of canvas width)
-      const logoWidth = canvas.width * 0.3;
-      const logoHeight = (logo.height / logo.width) * logoWidth;
-
-      // Calculate center position
-      const x = (canvas.width - logoWidth) / 2;
-      const y = (canvas.height - logoHeight) / 2;
-
-      // Save current context state
-      ctx.save();
-      
-      // Set composite operation to draw on top
-      ctx.globalCompositeOperation = 'source-over';
-      
-      // Set transparency
-      ctx.globalAlpha = 0.1;
-      
-      // Draw logo in center
-      ctx.drawImage(logo, x, y, logoWidth, logoHeight);
-      
-      // Restore context state
-      ctx.restore();
-
-      resolve(canvas);
-    };
-    logo.src = logoPath;
-  });
-};
 
 const downloadChartAsPNG = async (chartId: string, fileName: string, isDarkMode: boolean) => {
   const chartElement = document.getElementById(chartId);
   if (chartElement) {
     try {
       let canvas = await html2canvas(chartElement);
-      canvas = await addWatermark(canvas, isDarkMode);
       
       const link = document.createElement('a');
       link.href = canvas.toDataURL('image/png');
@@ -97,9 +57,7 @@ const downloadChartAsPDF = async (chartId: string, fileName: string, isDarkMode:
         useCORS: true,
         allowTaint: true
       });
-      
-      canvas = await addWatermark(canvas, isDarkMode);
-      
+            
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
         orientation: 'landscape',
@@ -855,6 +813,48 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
                           title: {
                             ...chartOptions.scales.y.title,
                             text: 'Cost (Lacs)'
+                          }
+                        },
+                        x: {
+                          ...chartOptions.scales.x,
+                          title: {
+                            ...chartOptions.scales.x.title,
+                            text: dashboard.X_axis_label
+                          }
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              );
+
+            case 'ScatterPlot':
+              return (
+                <div style={chartContainerStyle}>
+                  <Scatter
+                    data={{
+                      datasets: [{
+                        label: dashboard.Y_axis_label,
+                        data: dashboard.X_axis_data.map((x, i) => ({
+                          x: x,
+                          y: dashboard.Y_axis_data[i]
+                        })),
+                        backgroundColor: chartColors.primary[0],
+                        borderColor: chartColors.primaryBorder[0],
+                        borderWidth: 1,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                      }]
+                    }}
+                    options={{
+                      ...chartOptions,
+                      scales: {
+                        ...chartOptions.scales,
+                        y: {
+                          ...chartOptions.scales.y,
+                          title: {
+                            ...chartOptions.scales.y.title,
+                            text: dashboard.Y_axis_label
                           }
                         },
                         x: {
