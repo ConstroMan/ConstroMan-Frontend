@@ -11,6 +11,7 @@ import './index.css'
 import { AnimatePresence } from 'framer-motion'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { ToastProvider } from './contexts/ToastContext'
+import { NotFound } from './pages/NotFound'
 
 const App: React.FC = () => {
   return (
@@ -51,6 +52,9 @@ const App: React.FC = () => {
                     </PaymentGuard>
                   }
                 />
+
+                {/* Add this as the last route */}
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </div>
           </Router>
