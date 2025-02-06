@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from './ui/Button';
 import { MessageSquare, Trash2, Loader2, Plus, Edit, BarChart2, FileSpreadsheet, ChevronLeft, Sun, Moon, DownloadIcon, Download, FileEdit, X, LineChart } from 'lucide-react';
@@ -98,6 +98,7 @@ export function ProjectDetails() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'files'>('dashboard');
   const [pinnedCharts, setPinnedCharts] = useState<SavedChart[]>([]);
   const [updatingFiles, setUpdatingFiles] = useState<Set<number>>(new Set());
+  const [isLoadingPinnedCharts, setIsLoadingPinnedCharts] = useState(true);
 
   useEffect(() => {
     fetchProjectDetails();
@@ -107,10 +108,15 @@ export function ProjectDetails() {
     const fetchPinnedCharts = async () => {
       if (!projectId) return;
       try {
+        setIsLoadingPinnedCharts(true);
         const charts = await getProjectDashboardCharts(Number(projectId));
+        console.log('Fetched pinned charts:', charts);
         setPinnedCharts(charts);
       } catch (error) {
         console.error('Error fetching pinned charts:', error);
+        setError('Failed to load pinned charts');
+      } finally {
+        setIsLoadingPinnedCharts(false);
       }
     };
     
@@ -417,60 +423,56 @@ export function ProjectDetails() {
                 animation: "fadeIn 0.5s ease-out"
               }}
             >
-              {updatingFiles.size > 0 && (
-                <div className="absolute inset-0 bg-black/20 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
-                  <div className={`flex flex-col items-center space-y-3 ${themeStyles.cardBg}/80 bg-opacity-80 p-6 rounded-xl shadow-lg backdrop-blur-sm`}>
-                    <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
-                    <p className={`text-sm font-medium ${themeStyles.text}`}>
-                      Updating charts...
-                    </p>
-                  </div>
+              {isLoadingPinnedCharts ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
+                  {pinnedCharts.map((chart) => (
+                    <Card key={chart.id} className={`${themeStyles.cardBg} shadow-lg overflow-hidden`}>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 border-b">
+                        <CardTitle className={`text-base font-medium ${themeStyles.text}`}>
+                          {chart.name}
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleRemoveFromDashboard(chart.id)}
+                            className={`p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 
+                              transition-colors text-gray-500 hover:text-red-600`}
+                            title="Remove from dashboard"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pt-4 pb-2">
+                        <div className="h-[300px] w-full">
+                          <ChartRenderer
+                            dashboard={chart.chart_data}
+                            hideDownload={true}
+                            dimensions={{ width: 100, height: 300 }}
+                          />
+                        </div>
+                        <div className={`text-xs mt-2 ${themeStyles.text} border-t pt-2`}>
+                          {chart.query}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  {pinnedCharts.length === 0 && (
+                    <div className="col-span-full flex flex-col items-center justify-center p-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                      <BarChart2 className={`h-12 w-12 ${themeStyles.subtext} mb-4`} />
+                      <h3 className={`text-lg font-medium ${themeStyles.text}`}>
+                        No charts pinned yet
+                      </h3>
+                      <p className={`text-sm ${themeStyles.subtext} mt-2 text-center max-w-md`}>
+                        Pin charts from your analysis to create a custom dashboard view
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
-                {pinnedCharts.map((chart) => (
-                  <Card key={chart.id} className={`${themeStyles.cardBg} shadow-lg overflow-hidden`}>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 border-b">
-                      <CardTitle className={`text-base font-medium ${themeStyles.text}`}>
-                        {chart.name}
-                      </CardTitle>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleRemoveFromDashboard(chart.id)}
-                          className={`p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 
-                            transition-colors text-gray-500 hover:text-red-600`}
-                          title="Remove from dashboard"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-4 pb-2">
-                      <div className="h-[300px] w-full">
-                        <ChartRenderer
-                          dashboard={chart.chart_data}
-                          hideDownload={true}
-                          dimensions={{ width: 100, height: 300 }}
-                        />
-                      </div>
-                      <div className={`text-xs mt-2 ${themeStyles.text} border-t pt-2`}>
-                        {chart.query}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                {pinnedCharts.length === 0 && (
-                  <div className="col-span-full flex flex-col items-center justify-center p-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                    <BarChart2 className={`h-12 w-12 ${themeStyles.subtext} mb-4`} />
-                    <h3 className={`text-lg font-medium ${themeStyles.text}`}>
-                      No charts pinned yet
-                    </h3>
-                    <p className={`text-sm ${themeStyles.subtext} mt-2 text-center max-w-md`}>
-                      Pin charts from your analysis to create a custom dashboard view
-                    </p>
-                  </div>
-                )}
-              </div>
             </TabsContent>
 
             <TabsContent 

@@ -404,8 +404,10 @@ export const toggleChartPin = async (projectId: number, chartId: number) => {
 export const addChartToProjectDashboard = async (projectId: number, chartId: number) => {
   try {
     const response = await api.post(`/api/projects/${projectId}/dashboard/charts/${chartId}`);
+    console.log('Add chart to dashboard response:', response.data);
     return response.data;
   } catch (error) {
+    console.error('Error adding chart to dashboard:', error);
     throw error;
   }
 };
@@ -413,9 +415,12 @@ export const addChartToProjectDashboard = async (projectId: number, chartId: num
 // Get pinned dashboard charts
 export const getProjectDashboardCharts = async (projectId: number) => {
   try {
+    console.log('Fetching dashboard charts for project:', projectId);
     const response = await api.get(`/api/projects/${projectId}/dashboard/charts`);
+    console.log('Dashboard charts response:', response.data);
     return response.data as SavedChart[];
   } catch (error) {
+    console.error('Error fetching dashboard charts:', error);
     throw error;
   }
 };
