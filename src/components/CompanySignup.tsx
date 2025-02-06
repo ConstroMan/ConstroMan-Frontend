@@ -268,8 +268,9 @@ export const CompanySignup: React.FC = () => {
     <div className={`min-h-screen flex flex-col items-center justify-center ${themeStyles.background}`}>
       {/* Logo above dialog */}
       <div className="mb-8">
-        <img src="Logo.png" alt="ConstroMan Logo" className="h-16 w-auto" />
+        <img src="/images/Logo-removebg.png" alt="ConstroMan Logo" className="h-16 w-auto" />
       </div>
+
 
       <motion.div 
         initial={{ opacity: 0, y: -20 }}

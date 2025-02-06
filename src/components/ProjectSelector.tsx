@@ -121,8 +121,8 @@ export function ProjectSelector() {
         <div className="fixed top-4 left-0 w-72">
           <img 
             src={currentTheme === 'dark' 
-              ? '/src/assets/images/Logo_Full_Dark_Mode-removebg-preview.png'
-              : '/src/assets/images/Logo_Full_Light_mode-removebg-preview.png'
+              ? '/images/Logo_Full_Dark_Mode-removebg-preview.png'
+              : '/images/Logo_Full_Light_mode-removebg-preview.png'
             } 
             alt="ConstroMan Logo" 
             className="w-full h-auto"

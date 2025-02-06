@@ -11,7 +11,7 @@ import { Input } from './ui/Input';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../contexts/ThemeContext';
 import { Theme, themes } from '../utils/theme'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/Tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { ChartRenderer } from './ChartRenderer.tsx';
 import { NavBar } from './NavBar';
 
@@ -301,8 +301,8 @@ export function ProjectDetails() {
         <div className="fixed top-4 left-0 w-72">
           <img 
             src={currentTheme === 'dark' 
-              ? '/src/assets/images/Logo_Full_Dark_Mode-removebg-preview.png'
-              : '/src/assets/images/Logo_Full_Light_mode-removebg-preview.png'
+              ? '/images/Logo_Full_Dark_Mode-removebg-preview.png'
+              : '/images/Logo_Full_Light_mode-removebg-preview.png'
             } 
             alt="ConstroMan Logo" 
             className="w-full h-auto"

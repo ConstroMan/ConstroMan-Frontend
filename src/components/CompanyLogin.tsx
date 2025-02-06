@@ -40,8 +40,8 @@ export const CompanyLogin: React.FC = () => {
       <div className="mb-1 w-full max-w-md flex justify-center">
         <img 
           src={currentTheme === 'dark' 
-            ? 'src/assets/images/Logo_Full_Dark_Mode-removebg-preview.png'
-            : 'src/assets/images/Logo_Full_Light_mode-removebg-preview.png'
+            ? '/images/Logo_Full_Dark_Mode-removebg-preview.png'
+            : '/images/Logo_Full_Light_mode-removebg-preview.png'
           } 
           alt="ConstroMan Logo" 
           className="w-4/5 h-auto" // Set width to 80% of container

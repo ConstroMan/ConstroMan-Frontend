@@ -13,14 +13,40 @@ declare global {
   }
 }
 
+interface PlanOption {
+  users: number;
+  monthlyPrice: number;
+  yearlyPrice: number;
+}
+
 export function PaymentGateway() {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
+  const [selectedTier, setSelectedTier] = useState<number>(5);
   const navigate = useNavigate();
   const location = useLocation();
   const { currentTheme } = useTheme();
   const { showToast } = useToast();
   const themeStyles = themes[currentTheme];
+
+  const planOptions: PlanOption[] = [
+    {
+      users: 5,
+      monthlyPrice: 6499,
+      yearlyPrice: Math.round(6499 * 12 * 0.9) // 10% discount
+    },
+    {
+      users: 8,
+      monthlyPrice: 7499,
+      yearlyPrice: Math.round(7499 * 12 * 0.9)
+    },
+    {
+      users: 10,
+      monthlyPrice: 8499,
+      yearlyPrice: Math.round(8499 * 12 * 0.9)
+    }
+  ];
 
   useEffect(() => {
     checkPaymentStatus();
@@ -56,14 +82,19 @@ export function PaymentGateway() {
   const handleSubscription = async () => {
     try {
       setIsProcessing(true);
-      const orderData = await initiateSubscription();
+      const orderData = await initiateSubscription(selectedPlan, selectedTier);
       
+      const selectedPlanData = planOptions.find(plan => plan.users === selectedTier);
+      const amount = selectedPlan === 'monthly' 
+        ? selectedPlanData?.monthlyPrice 
+        : selectedPlanData?.yearlyPrice;
+
       const options = {
         key: orderData.key,
-        amount: orderData.amount,
+        amount: amount,
         currency: orderData.currency,
         name: 'ConstroMan',
-        description: 'Monthly Subscription',
+        description: `${selectedTier} Users - ${selectedPlan.charAt(0).toUpperCase() + selectedPlan.slice(1)} Subscription`,
         order_id: orderData.order_id,
         image: '/logo.png',
         handler: async (response: any) => {
@@ -128,7 +159,7 @@ export function PaymentGateway() {
         />
       </div>
 
-      <div className={`max-w-md w-full p-8 ${themeStyles.cardBg} rounded-xl shadow-xl`}>
+      <div className={`max-w-2xl w-full p-8 ${themeStyles.cardBg} rounded-xl shadow-xl`}>
         <div className="text-center mb-8">
           <CreditCard className={`h-12 w-12 mx-auto mb-4 ${themeStyles.text}`} />
           <h2 className={`text-2xl font-bold ${themeStyles.text}`}>
@@ -139,29 +170,84 @@ export function PaymentGateway() {
           </p>
         </div>
 
-        <div className={`border-t border-b ${themeStyles.borderColor} py-6 my-6`}>
-          <div className="flex justify-between items-center mb-4">
-            <span className={themeStyles.text}>Monthly Subscription</span>
-            <div className="text-right">
-              <span className={`font-bold ${themeStyles.text} text-2xl`}>₹8,499</span>
-              <span className={`${themeStyles.subtext} text-sm`}>/month</span>
-            </div>
+        <div className="mb-6">
+          <div className="flex justify-center space-x-4 mb-8">
+            <button
+              onClick={() => setSelectedPlan('monthly')}
+              className={`px-6 py-2 rounded-full transition-all duration-200 ${
+                selectedPlan === 'monthly' 
+                  ? 'bg-teal-600 text-white shadow-lg scale-105' 
+                  : `${themeStyles.borderColor} border hover:border-teal-600`
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setSelectedPlan('yearly')}
+              className={`px-6 py-2 rounded-full transition-all duration-200 ${
+                selectedPlan === 'yearly' 
+                  ? 'bg-teal-600 text-white shadow-lg scale-105' 
+                  : `${themeStyles.borderColor} border hover:border-teal-600`
+              }`}
+            >
+              Yearly (10% off)
+            </button>
           </div>
-          
-          <ul className={`space-y-3 ${themeStyles.subtext}`}>
-            <li className="flex items-center">
-              <Shield className="h-4 w-4 mr-2 text-teal-500" />
-              Unlimited Projects
-            </li>
-            <li className="flex items-center">
-              <Shield className="h-4 w-4 mr-2 text-teal-500" />
-              AI-Powered Analytics
-            </li>
-            <li className="flex items-center">
-              <Shield className="h-4 w-4 mr-2 text-teal-500" />
-              Priority Support
-            </li>
-          </ul>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {planOptions.map((plan) => (
+              <div
+                key={plan.users}
+                onClick={() => setSelectedTier(plan.users)}
+                className={`cursor-pointer p-6 rounded-xl border-2 transition-all duration-200 hover:shadow-xl relative ${
+                  selectedTier === plan.users 
+                    ? 'border-teal-600 shadow-lg transform -translate-y-2 bg-teal-50 dark:bg-teal-900/10' 
+                    : `${themeStyles.borderColor} hover:border-teal-600 hover:-translate-y-1`
+                }`}
+              >
+                {plan.users === 8 && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-teal-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                    Recommended
+                  </div>
+                )}
+                <h3 className={`text-xl font-bold ${themeStyles.text} mb-4 ${
+                  selectedTier === plan.users ? 'text-teal-600' : ''
+                }`}>
+                  {plan.users} Users
+                </h3>
+                <div className={`${themeStyles.text} text-2xl font-bold mb-2`}>
+                  ₹{selectedPlan === 'monthly' ? plan.monthlyPrice : Math.round(plan.yearlyPrice / 12)}
+                  <span className={`${themeStyles.subtext} text-sm`}>
+                    /month
+                  </span>
+                </div>
+                {selectedPlan === 'yearly' && (
+                  <>
+                    <div className={`${themeStyles.subtext} text-sm mb-2`}>
+                      Total: ₹{plan.yearlyPrice} /year
+                    </div>
+                    <div className="text-teal-600 text-sm mb-4">
+                      Save ₹{Math.round(plan.monthlyPrice * 12 * 0.1)} yearly
+                    </div>
+                  </>
+                )}
+                <ul className={`space-y-3 ${themeStyles.subtext}`}>
+                  <li className="flex items-center">
+                    <Shield className="h-4 w-4 mr-2 text-teal-500" />
+                    Unlimited Projects
+                  </li>
+                  <li className="flex items-center">
+                    <Shield className="h-4 w-4 mr-2 text-teal-500" />
+                    AI-Powered Analytics
+                  </li>
+                  <li className="flex items-center">
+                    <Shield className="h-4 w-4 mr-2 text-teal-500" />
+                    Priority Support
+                  </li>
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
 
         <Button
@@ -175,7 +261,11 @@ export function PaymentGateway() {
               Processing...
             </div>
           ) : (
-            'Subscribe Now'
+            `Subscribe Now - ₹${
+              selectedPlan === 'monthly'
+                ? planOptions.find(p => p.users === selectedTier)?.monthlyPrice
+                : Math.round(planOptions.find(p => p.users === selectedTier)?.yearlyPrice || 0)
+            }/${selectedPlan === 'monthly' ? 'month' : 'year'}`
           )}
         </Button>
 
