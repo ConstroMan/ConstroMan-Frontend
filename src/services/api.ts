@@ -2,8 +2,9 @@ import axios from 'axios'
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
 import { ERROR_MESSAGES } from '../constants/errorMessages';
+import { Permission, Role, TeamMember } from '../types/roles';
 
-const API_URL = 'https://api.constroman.co.in'
+const API_URL = 'http://127.0.0.1:5000'
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -43,16 +44,42 @@ export const setAuthToken = (token: string | null) => {
   }
 }
 
+// Add type for identity
+type UserIdentity = {
+  type: 'company' | 'user';
+  id: number;
+  role?: string;
+  permissions?: Permission[];
+};
+
+// Update the login functions to store identity information
 export const login = async (email: string, password: string) => {
   try {
-    const response = await api.post('/api/user/login', { email, password })
-    const { token } = response.data
-    setAuthToken(token)
-    return response.data
+    console.log('Making user login request...');
+    const response = await api.post('/api/user/login', { email, password });
+    const { token, user } = response.data;
+    
+    // Store token
+    localStorage.setItem('token', token);
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    
+    // Store complete identity information
+    const identity = {
+      type: 'user',
+      id: user.id,
+      role: user.role,
+      permissions: user.permissions || []
+    };
+    localStorage.setItem('userIdentity', JSON.stringify(identity));
+    localStorage.setItem('userType', 'employee');
+    
+    console.log('Stored user identity:', identity);
+    return response.data;
   } catch (error) {
-    throw error
+    console.error('User login error:', error);
+    throw error;
   }
-}
+};
 
 export const signup = async (userData: {
   name: string
@@ -64,8 +91,20 @@ export const signup = async (userData: {
 }) => {
   try {
     const response = await api.post('/api/user/signup', userData)
-    const { token } = response.data
+    const { token, user } = response.data
+    
+    // Store token and identity information
     setAuthToken(token)
+    
+    const identity = {
+      type: 'user',
+      id: user.id,
+      role: user.role,
+      permissions: user.permissions || []
+    };
+    localStorage.setItem('userIdentity', JSON.stringify(identity))
+    localStorage.setItem('userType', 'employee')
+    
     return response.data
   } catch (error) {
     if (error.response) {
@@ -140,14 +179,39 @@ export const addProject = async (projectData: {
   }
 };
 
+// Update the login functions to store identity information
 export const companyLogin = async (email: string, password: string) => {
   try {
-    const response = await api.post('/api/company/login', { email, password })
-    return response.data
+    console.log('Making company login request...');
+    const response = await api.post('/api/company/login', { email, password });
+    console.log('Raw company login response:', response.data);
+
+    if (!response.data || !response.data.token) {
+      throw new Error('Invalid response format');
+    }
+
+    const { token, company } = response.data;
+    
+    // Store token
+    localStorage.setItem('token', token);
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    
+    // Store identity with proper format
+    const identity = {
+      type: 'company',
+      id: company.id,
+      role: 'admin'
+    };
+    localStorage.setItem('userIdentity', JSON.stringify(identity));
+    localStorage.setItem('userType', 'company');
+    
+    console.log('Stored identity:', identity);
+    return response.data;
   } catch (error) {
-    throw error
+    console.error('Company login error:', error);
+    throw error;
   }
-}
+};
 
 export const companySignup = async (companyData: {
   name: string;
@@ -159,15 +223,28 @@ export const companySignup = async (companyData: {
   website?: string;
 }) => {
   try {
-    const response = await api.post('/api/company/signup', companyData);
-    return response.data;
+    const response = await api.post('/api/company/signup', companyData)
+    const { token, company } = response.data
+    
+    // Store token and identity information
+    setAuthToken(token)
+    
+    const identity = {
+      type: 'company',
+      id: company.id,
+      role: 'admin'
+    };
+    localStorage.setItem('userIdentity', JSON.stringify(identity))
+    localStorage.setItem('userType', 'company')
+    
+    return response.data
   } catch (error) {
     if (error.response) {
-      throw error.response.data;
+      throw error.response.data
     }
-    throw error;
+    throw error
   }
-};
+}
 
 export const addCompanyUser = async (userData: {
   name: string
@@ -689,26 +766,54 @@ export const sendVerificationCode = async (identifier: string, type: 'phone' | '
   }
 };
 
-export const verifyCode = async (data: {
+export const verifyCode = async (verificationData: {
   identifier: string;
   code: string;
-  entity_type: 'user' | 'company';
+  entity_type: 'company' | 'user';
   entity_id: number;
   type: 'phone' | 'email';
 }) => {
   try {
-    const response = await api.post('/api/verify/check', data);
+    console.log('Making verification API call with data:', verificationData); // Debug log
+    
+    // Ensure the API base URL is correct
+    console.log('API base URL:', api.defaults.baseURL); // Debug log
+    
+    // Make the API call with explicit configuration
+    const response = await api.post('/api/verify/check', verificationData, {
+      headers: {
+        'Content-Type': 'application/json',
+        // Include any auth headers if needed
+        ...(localStorage.getItem('token') ? {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        } : {})
+      }
+    });
+    
+    console.log('Verification API response:', response.data); // Debug log
     return response.data;
   } catch (error) {
+    console.error('Full verification error:', error); // More detailed error log
+    if (error.response) {
+      console.error('Error response:', error.response.data); // Log error response
+      throw error.response.data;
+    }
     throw error;
   }
 };
 
-// Add an interceptor to handle timeout and other errors
+// Add a check for the API instance configuration
+console.log('API instance config:', {
+  baseURL: api.defaults.baseURL,
+  headers: api.defaults.headers,
+  timeout: api.defaults.timeout
+});
+
+// Update the interceptor to handle timeout and other errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.code === 'ECONNABORTED' || error.message.includes('timeout') || error?.response?.status === 401) {
+    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
       // Clear all stored data
       localStorage.clear();
       sessionStorage.clear();
@@ -720,6 +825,301 @@ api.interceptors.response.use(
         message: ERROR_MESSAGES.SESSION_TIMEOUT
       });
     }
+
+    // Handle 401 errors separately for team management
+    if (error?.response?.status === 401) {
+      const currentPath = window.location.pathname;
+      // Only logout if not on team management or other protected routes
+      if (!currentPath.includes('/settings')) {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = '/company-login';
+      }
+    }
+    
     return Promise.reject(error);
   }
 );
+
+// Team Management API Functions
+export const getTeamMembers = async (): Promise<TeamMember[]> => {
+  try {
+    // Add debug log for request
+    console.log('Authorization header:', api.defaults.headers.common['Authorization']);
+    
+    const response = await api.get('/api/company/team');
+    console.log('Team members response:', response.data);
+    
+    return response.data;
+  } catch (error) {
+    console.error('Get team members error:', error);
+    throw error;
+  }
+};
+
+export const getRoles = async (): Promise<Role[]> => {
+  try {
+    const response = await api.get('/api/company/roles');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching roles:', error);
+    throw error;
+  }
+};
+
+export const createRole = async (roleData: {
+  name: string;
+  permissions: Permission[];
+  is_default?: boolean;
+}): Promise<Role> => {
+  try {
+    const response = await api.post('/api/company/roles', roleData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating role:', error);
+    throw error;
+  }
+};
+
+export const updateRole = async (
+  roleId: number,
+  updates: {
+    name?: string;
+    permissions?: Permission[];
+    is_default?: boolean;
+  }
+): Promise<Role> => {
+  try {
+    const response = await api.patch(`/api/company/roles/${roleId}`, updates);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating role:', error);
+    throw error;
+  }
+};
+
+export const deleteRole = async (roleId: number): Promise<void> => {
+  try {
+    await api.delete(`/api/company/roles/${roleId}`);
+  } catch (error) {
+    console.error('Error deleting role:', error);
+    throw error;
+  }
+};
+
+export const addTeamMember = async (memberData: {
+  email: string;
+  name: string;
+  password: string;
+  role_id: number;
+  contact: string;
+  designation: string;
+}): Promise<TeamMember> => {
+  try {
+    const response = await api.post('/api/company/team/add', memberData);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const updateTeamMember = async (
+  memberId: number,
+  updates: {
+    permissions: Permission[];
+  }
+): Promise<TeamMember> => {
+  try {
+    const response = await api.patch(
+      `/api/company/team/${memberId}/permissions`,
+      { permissions: updates.permissions },
+      {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error updating team member:', error);
+    throw error;
+  }
+};
+
+export const removeTeamMember = async (memberId: number): Promise<void> => {
+  try {
+    await api.delete(`/api/company/team/${memberId}`);
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Update the updateAllPermissions function
+export const updateAllPermissions = async (
+  memberId: number,
+  permissions: Permission[]
+): Promise<TeamMember> => {
+  try {
+    const response = await api.patch(`/api/company/team/${memberId}/permissions`, {
+      permissions: permissions
+    });
+    
+    if (!response.data) {
+      throw new Error('No data received from server');
+    }
+    
+    // Ensure permissions are included in the response
+    if (!response.data.permissions) {
+      console.warn('No permissions in response data:', response.data);
+      response.data.permissions = permissions; // Use the sent permissions if none returned
+    }
+    
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.status === 403) {
+      throw new Error(error.response.data.message || 'You do not have permission to update team members');
+    }
+    throw error;
+  }
+};
+
+// Add these interfaces
+export interface ProjectAccess {
+  project_id: number;
+  assigned_users: {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+    designation: string;
+  }[];
+}
+
+// Add these new API functions
+export const getProjectAccess = async (projectId: number): Promise<ProjectAccess> => {
+  try {
+    const response = await api.get(`/api/projects/${projectId}/access`);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const updateProjectAccess = async (projectId: number, userIds: number[]) => {
+  try {
+    const response = await api.post(`/api/projects/${projectId}/access`, {
+      user_ids: userIds
+    });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Update these functions to be more explicit
+export const getUserProjects = async () => {
+  try {
+    const response = await api.get('/api/user/projects')
+    // If the response is directly the array of projects
+    if (Array.isArray(response.data)) {
+      return response.data
+    }
+    // If the projects are nested inside a property
+    if (response.data && typeof response.data === 'object') {
+      // Return the first array found in the response data
+      const arrays = Object.values(response.data).filter(Array.isArray)
+      if (arrays.length > 0) {
+        return arrays[0]
+      }
+    }
+    // If no valid data found, return empty array
+    console.error('Unexpected response structure:', response.data)
+    return []
+  } catch (error) {
+    console.error('Error fetching user projects:', error)
+    throw error
+  }
+}
+
+export const getCompanyProjects = async () => {
+  try {
+    const response = await api.get('/api/projects')
+    // If the response is directly the array of projects
+    if (Array.isArray(response.data)) {
+      return response.data
+    }
+    // If the projects are nested inside a property
+    if (response.data && typeof response.data === 'object') {
+      // Return the first array found in the response data
+      const arrays = Object.values(response.data).filter(Array.isArray)
+      if (arrays.length > 0) {
+        return arrays[0]
+      }
+    }
+    // If no valid data found, return empty array
+    console.error('Unexpected response structure:', response.data)
+    return []
+  } catch (error) {
+    console.error('Error fetching company projects:', error)
+    throw error
+  }
+}
+
+// Rename existing getProjects to be more specific
+export const getAllAccessibleProjects = async () => {
+  const userType = localStorage.getItem('userType')
+  console.log('Current user type:', userType) // Add this log
+  
+  try {
+    if (userType === 'company') {
+      return await getCompanyProjects()
+    } else {
+      return await getUserProjects()
+    }
+  } catch (error) {
+    console.error('Error in getAllAccessibleProjects:', error)
+    throw error
+  }
+}
+
+// Add a function to get role members if needed
+export const getRoleMembers = async (roleId: number): Promise<TeamMember[]> => {
+  try {
+    const response = await api.get(`/api/company/roles/${roleId}/members`);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Update permission check utility
+export const checkPermission = (permission: Permission): boolean => {
+  try {
+    const identityStr = localStorage.getItem('userIdentity');
+    if (!identityStr) return false;
+    
+    const identity: UserIdentity = JSON.parse(identityStr);
+    
+    // Company always has all permissions
+    if (identity.type === 'company') return true;
+    
+    // Admin users have all permissions
+    if (identity.role === 'admin') return true;
+    
+    // Check specific permission for regular users
+    return identity.permissions?.includes(permission) || false;
+  } catch (error) {
+    console.error('Error checking permission:', error);
+    return false;
+  }
+};
+
+export const deleteProject = async (projectId: number) => {
+  try {
+    const response = await api.delete(`/api/projects/delete/${projectId}`);
+    return response.status === 204;
+  } catch (error) {
+    console.error('Error deleting project:', error);
+    throw error;
+  }
+};
