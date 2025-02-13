@@ -9,6 +9,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { themes } from '../utils/theme.ts'
 import { useToast } from '../contexts/ToastContext';
 import { ERROR_MESSAGES } from '../constants/errorMessages';
+import { PERMISSIONS } from '../constants/permissions';
 
 export const CompanyLogin: React.FC = () => {
   const [email, setEmail] = useState('')
@@ -27,6 +28,7 @@ export const CompanyLogin: React.FC = () => {
       const response = await companyLogin(email, password)
       localStorage.setItem('token', response.token)
       localStorage.setItem('userType', 'company')
+      localStorage.setItem('userPermissions', JSON.stringify(PERMISSIONS.map(p => p.id)))
       showToast('Successfully logged in', 'success')
       navigate('/projects')
     } catch (err: any) {
@@ -138,6 +140,15 @@ export const CompanyLogin: React.FC = () => {
               className={`font-medium ${themeStyles.linkColor} ${themeStyles.linkHoverColor}`}
             >
               Sign up
+            </Link>
+          </p>
+          <p className={`text-center text-sm ${themeStyles.subtext}`}>
+            Are you an employee?{' '}
+            <Link 
+              to="/login" 
+              className={`font-medium ${themeStyles.linkColor} ${themeStyles.linkHoverColor}`}
+            >
+              Employee Login
             </Link>
           </p>
         </div>

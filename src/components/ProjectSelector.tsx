@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
-import { getProjects, addProject } from '../services/api';
-import { ChevronLeft, Loader2, Sun, Moon, LayoutGrid, List, PlusCircle } from 'lucide-react';
+import { getAllAccessibleProjects, addProject, deleteProject } from '../services/api';
+import { ChevronLeft, Loader2, Sun, Moon, LayoutGrid, List, PlusCircle, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Theme, themes } from '../utils/theme';
 import { Dialog } from './ui/Dialog'
@@ -38,6 +38,8 @@ export function ProjectSelector() {
   const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     const storedUserType = localStorage.getItem('userType') as 'company' | 'employee' | null;
@@ -50,13 +52,17 @@ export function ProjectSelector() {
   const fetchProjects = async () => {
     try {
       setIsLoading(true);
-      const fetchedProjects = await getProjects();
-      setProjects(fetchedProjects);
+      const fetchedProjects = await getAllAccessibleProjects();
+      setProjects(Array.isArray(fetchedProjects) ? fetchedProjects : []);
+      
+      console.log('Fetched projects:', fetchedProjects);
     } catch (error: any) {
+      console.error('Error fetching projects:', error);
       showToast(
         error.message || 'Failed to fetch projects',
         'error'
       );
+      setProjects([]);
     } finally {
       setIsLoading(false);
     }
@@ -101,9 +107,35 @@ export function ProjectSelector() {
     }
   }
 
-  const filteredProjects = projects.filter(project => 
-    project.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleDeleteProject = async (e: React.MouseEvent, project: Project) => {
+    e.stopPropagation();
+    setProjectToDelete(project);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteProject = async () => {
+    if (!projectToDelete) return;
+    
+    try {
+      setIsLoading(true);
+      await deleteProject(Number(projectToDelete.id));
+      showToast('Project deleted successfully', 'success');
+      await fetchProjects();
+    } catch (error: any) {
+      showToast(
+        error.message || 'Failed to delete project',
+        'error'
+      );
+    } finally {
+      setIsLoading(false);
+      setIsDeleteDialogOpen(false);
+      setProjectToDelete(null);
+    }
+  };
+
+  const filteredProjects = projects?.filter(project => 
+    project?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  ) || [];
 
   return (
     <AnimatePresence>
@@ -241,35 +273,60 @@ export function ProjectSelector() {
                 : 'space-y-3'
               }`}
             >
-              {filteredProjects.map((project) => (
-                <Button
-                  key={project.id}
-                  onClick={() => handleProjectSelect(project.id)}
-                  className={`
-                    ${viewMode === 'grid' 
-                      ? `h-28 flex-col justify-start p-4 rounded-xl text-left`
-                      : `w-full rounded-full`
-                    }
-                    ${themeStyles.buttonBg} 
-                    ${themeStyles.buttonText} 
-                    ${themeStyles.buttonHoverBg}
-                    transition-all duration-200
-                    hover:scale-102
-                    hover:shadow-md
-                    active:scale-98
-                    flex items-start
-                  `}
-                >
-                  {viewMode === 'grid' ? (
-                    <>
-                      <h3 className="text-base font-semibold mb-1">{project.name}</h3>
-                      <p className={`text-xs ${themeStyles.subtext}`}>Click to view details</p>
-                    </>
-                  ) : (
-                    <span>{project.name}</span>
-                  )}
-                </Button>
-              ))}
+              {filteredProjects.length > 0 ? (
+                filteredProjects.map((project) => (
+                  <Button
+                    key={project.id}
+                    onClick={() => handleProjectSelect(project.id)}
+                    className={`
+                      ${viewMode === 'grid' 
+                        ? `h-28 flex-col justify-start p-4 rounded-xl text-left`
+                        : `w-full rounded-full`
+                      }
+                      ${themeStyles.buttonBg} 
+                      ${themeStyles.buttonText} 
+                      ${themeStyles.buttonHoverBg}
+                      transition-all duration-200
+                      hover:scale-102
+                      hover:shadow-md
+                      active:scale-98
+                      flex items-start
+                      relative
+                    `}
+                  >
+                    {viewMode === 'grid' ? (
+                      <>
+                        <h3 className="text-base font-semibold mb-1">{project.name}</h3>
+                        <p className={`text-xs ${themeStyles.subtext}`}>Click to view details</p>
+                        {userType === 'company' && (
+                          <button
+                            onClick={(e) => handleDeleteProject(e, project)}
+                            className="absolute top-2 right-2 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <span>{project.name}</span>
+                        {userType === 'company' && (
+                          <button
+                            onClick={(e) => handleDeleteProject(e, project)}
+                            className="absolute right-4 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </Button>
+                ))
+              ) : (
+                <div className={`text-center ${themeStyles.subtext} py-4`}>
+                  {isLoading ? 'Loading projects...' : 'No projects found'}
+                </div>
+              )}
             </div>
           </div>
         </motion.div>
@@ -349,6 +406,48 @@ export function ProjectSelector() {
                 </Button>
               </Dialog.Footer>
             </form>
+          </Dialog.Content>
+        </Dialog>
+
+        {/* Add Delete Confirmation Dialog */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <Dialog.Content className={`${themeStyles.cardBg} border ${currentTheme === 'dark' ? 'border-gray-700' : 'border-gray-200'} rounded-xl`}>
+            <Dialog.Header>
+              <Dialog.Title className={`${themeStyles.text} text-xl font-semibold`}>
+                Delete Project
+              </Dialog.Title>
+              <Dialog.Description className={themeStyles.subtext}>
+                Are you sure you want to delete "{projectToDelete?.name}"? This action cannot be undone.
+              </Dialog.Description>
+            </Dialog.Header>
+
+            <Dialog.Footer>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsDeleteDialogOpen(false)}
+                className={`${currentTheme === 'dark' 
+                  ? 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700' 
+                  : 'bg-white text-gray-900 border-gray-200 hover:bg-gray-100'}`}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={confirmDeleteProject}
+                disabled={isLoading}
+                className="bg-red-600 text-white hover:bg-red-700"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete Project'
+                )}
+              </Button>
+            </Dialog.Footer>
           </Dialog.Content>
         </Dialog>
 

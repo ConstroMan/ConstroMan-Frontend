@@ -133,18 +133,34 @@ export function ProjectDetails() {
     try {
       setIsLoading(true);
       const numericProjectId = parseInt(projectId);
-      const [details, plData, filesData] = await Promise.all([
-        getProjectDetails(numericProjectId),
+      
+      // Get project details first
+      const details = await getProjectDetails(numericProjectId);
+      if (!details) {
+        throw new Error('Failed to load project details');
+      }
+      setProject(details);
+
+      // Only fetch PL data and files if we have project details
+      const [plData, filesData] = await Promise.all([
         getProjectPL(numericProjectId),
         getProjectFiles(numericProjectId)
       ]);
       
-      setProject(details);
       setProfitLoss(plData);
+      
+      // Update project files if they exist
+      if (filesData) {
+        setProject(prev => prev ? { ...prev, files: filesData } : null);
+      }
+      
       setError(null);
     } catch (err) {
       console.error('Error fetching project data:', err);
       setError('Failed to load project details. Please try again later.');
+      // Reset states on error
+      setProject(null);
+      setProfitLoss(null);
     } finally {
       setIsLoading(false);
     }
@@ -278,6 +294,18 @@ export function ProjectDetails() {
     }
   };
 
+  const getProjectFilesList = () => {
+    if (!project) return [];
+    // Access the nested files array
+    const files = project.files?.files || project.files;
+    if (!files) return [];
+    if (!Array.isArray(files)) {
+      console.warn('Project files is not an array:', files);
+      return [];
+    }
+    return files;
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-100/50 to-teal-100/50 backdrop-blur-sm">
@@ -292,6 +320,7 @@ export function ProjectDetails() {
   return (
     <AnimatePresence mode="wait">
       <motion.div 
+        key="project-details"
         initial={{ opacity: 0, x: 300 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -300 }}
@@ -509,7 +538,7 @@ export function ProjectDetails() {
                             </tr>
                           </thead>
                           <tbody className={`divide-y ${themeStyles.borderColor} border-t ${themeStyles.borderColor}`}>
-                            {project?.files.length === 0 && processingFiles.size === 0 ? (
+                            {getProjectFilesList().length === 0 && processingFiles.size === 0 ? (
                               <tr>
                                 <td colSpan={5} className="px-6 py-12 text-center">
                                   <div className="flex flex-col items-center justify-center space-y-4">
@@ -525,7 +554,7 @@ export function ProjectDetails() {
                               </tr>
                             ) : (
                               <>
-                                {project?.files.map((file, index) => (
+                                {getProjectFilesList().map((file, index) => (
                                   <tr key={file.id} className={`border-b ${themeStyles.borderColor}`}>
                                     <td className={`px-6 py-4 whitespace-nowrap text-sm ${themeStyles.text}`}>
                                       {updatingFiles.has(file.id) ? (

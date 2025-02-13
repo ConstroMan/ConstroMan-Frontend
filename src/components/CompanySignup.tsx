@@ -167,14 +167,14 @@ export const CompanySignup: React.FC = () => {
     }
 
     try {
-      // Add +91<space> prefix to contact number if not already present
+      // Format contact number
       const formattedContact = formData.contact.startsWith('+91 ') 
         ? formData.contact 
         : formData.contact.startsWith('+91')
           ? formData.contact.replace('+91', '+91 ')
           : `+91 ${formData.contact}`;
 
-      // First submit company details with formatted contact
+      // First submit company details
       const signupResponse = await companySignup({
         name: formData.name,
         email: formData.email,
@@ -185,12 +185,23 @@ export const CompanySignup: React.FC = () => {
         website: formData.website
       });
       
-      setEntityId(signupResponse.id);
+      console.log('Signup Response:', signupResponse); // Debug log
       
-      // Send verification code with formatted contact
-      await sendVerificationCode(formattedContact, 'phone');
-      
-      setShowOtpVerification(true);
+      if (signupResponse && signupResponse.company && signupResponse.company.id) {
+        setEntityId(signupResponse.company.id);
+        
+        // Send verification code
+        const verificationResponse = await sendVerificationCode(formattedContact, 'phone');
+        console.log('Verification code sent:', verificationResponse); // Debug log
+        
+        if (verificationResponse.message === "Verification code sent successfully") {
+          setShowOtpVerification(true);
+        } else {
+          throw new Error('Failed to send verification code');
+        }
+      } else {
+        throw new Error('Invalid response from server - missing company ID');
+      }
       
     } catch (err: any) {
       showToast(err.message || ERROR_MESSAGES.VALIDATION_ERROR, 'error');
@@ -200,17 +211,27 @@ export const CompanySignup: React.FC = () => {
   const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!entityId) return;
+    if (!entityId) {
+      showToast('Invalid entity ID', 'error');
+      return;
+    }
 
     try {
-      // Use formatted contact number for verification
       const formattedContact = formData.contact.startsWith('+91 ') 
         ? formData.contact 
         : formData.contact.startsWith('+91')
           ? formData.contact.replace('+91', '+91 ')
           : `+91 ${formData.contact}`;
 
-      await verifyCode({
+      console.log('Verifying OTP with data:', {
+        identifier: formattedContact,
+        code: otpCode,
+        entity_type: 'company',
+        entity_id: entityId,
+        type: 'phone'
+      });
+
+      const verificationResponse = await verifyCode({
         identifier: formattedContact,
         code: otpCode,
         entity_type: 'company',
@@ -218,9 +239,21 @@ export const CompanySignup: React.FC = () => {
         type: 'phone'
       });
       
-      showToast('Registration successful! Please log in.', 'success');
-      navigate('/company-login');
+      console.log('Verification response:', verificationResponse); // Debug log
+      
+      if (verificationResponse.verified) {
+        showToast('Phone number verified successfully!', 'success');
+        
+        // Add a small delay before redirecting
+        setTimeout(() => {
+          navigate('/company-login');
+        }, 1500);
+      } else {
+        throw new Error(verificationResponse.error || 'Verification failed');
+      }
+
     } catch (err: any) {
+      console.error('OTP verification error:', err);
       showToast(err.message || 'Invalid verification code', 'error');
     }
   };
@@ -250,7 +283,7 @@ export const CompanySignup: React.FC = () => {
               placeholder="Enter verification code"
               value={otpCode}
               onChange={(e) => setOtpCode(e.target.value)}
-              className={`${themeStyles.inputBg} ${themeStyles.text}`}
+              className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-full`}
             />
             <Button 
               type="submit" 
@@ -330,7 +363,7 @@ export const CompanySignup: React.FC = () => {
                   placeholder="Company Name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.name ? 'border-red-500' : ''}`}
+                  className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-full ${errors.name ? 'border-red-500' : ''}`}
                 />
                 {errors.name && <p className="text-red-500 text-xs">{errors.name}</p>}
 
@@ -342,7 +375,7 @@ export const CompanySignup: React.FC = () => {
                   placeholder="Email address"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.email ? 'border-red-500' : ''}`}
+                  className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-full ${errors.email ? 'border-red-500' : ''}`}
                 />
                 {errors.email && <p className="text-red-500 text-xs">{errors.email}</p>}
 
@@ -354,7 +387,7 @@ export const CompanySignup: React.FC = () => {
                   placeholder="Password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.password ? 'border-red-500' : ''}`}
+                  className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-full ${errors.password ? 'border-red-500' : ''}`}
                 />
                 {errors.password && <p className="text-red-500 text-xs">{errors.password}</p>}
 
@@ -366,7 +399,7 @@ export const CompanySignup: React.FC = () => {
                   placeholder="Confirm Password"
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
-                  className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.confirmPassword ? 'border-red-500' : ''}`}
+                  className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-full ${errors.confirmPassword ? 'border-red-500' : ''}`}
                 />
                 {errors.confirmPassword && <p className="text-red-500 text-xs">{errors.confirmPassword}</p>}
 
@@ -378,7 +411,7 @@ export const CompanySignup: React.FC = () => {
                   placeholder="Contact Number"
                   value={formData.contact}
                   onChange={handleInputChange}
-                  className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.contact ? 'border-red-500' : ''}`}
+                  className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-full ${errors.contact ? 'border-red-500' : ''}`}
                 />
                 {errors.contact && <p className="text-red-500 text-xs">{errors.contact}</p>}
 
@@ -390,7 +423,7 @@ export const CompanySignup: React.FC = () => {
                   placeholder="Office Address"
                   value={formData.address}
                   onChange={handleInputChange}
-                  className={`${themeStyles.inputBg} ${themeStyles.text} ${errors.address ? 'border-red-500' : ''}`}
+                  className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-full ${errors.address ? 'border-red-500' : ''}`}
                 />
                 {errors.address && <p className="text-red-500 text-xs">{errors.address}</p>}
 
@@ -401,7 +434,7 @@ export const CompanySignup: React.FC = () => {
                   placeholder="Office Phone (Optional)"
                   value={formData.officePhone}
                   onChange={handleInputChange}
-                  className={`${themeStyles.inputBg} ${themeStyles.text}`}
+                  className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-full`}
                 />
 
                 <Input
@@ -411,7 +444,7 @@ export const CompanySignup: React.FC = () => {
                   placeholder="Company Website (Optional)"
                   value={formData.website}
                   onChange={handleInputChange}
-                  className={`${themeStyles.inputBg} ${themeStyles.text}`}
+                  className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-full`}
                 />
               </div>
 

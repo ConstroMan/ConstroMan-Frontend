@@ -6,14 +6,18 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { login } from '../services/api.ts'
 import { Sun, Moon } from 'lucide-react'
 import { Theme, themes } from '../utils/theme'
+import { useTheme } from '../contexts/ThemeContext'
+import { useToast } from '../contexts/ToastContext'
+import { ERROR_MESSAGES } from '../constants/errorMessages'
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [currentTheme, setCurrentTheme] = useState<Theme>('light')
+  const { currentTheme, setCurrentTheme } = useTheme()
   const themeStyles = themes[currentTheme]
   const navigate = useNavigate()
+  const { showToast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -21,24 +25,20 @@ export const Login: React.FC = () => {
 
     try {
       const response = await login(email, password)
-      console.log('Login successful:', response)
       localStorage.setItem('token', response.token)
       localStorage.setItem('userType', 'employee')
+      localStorage.setItem('userPermissions', JSON.stringify(response.permissions || []))
+      showToast('Successfully logged in', 'success')
       navigate('/projects')
-    } catch (err) {
-      console.error('Login error:', err)
-      if (err.response && err.response.data && err.response.data.message) {
-        setError(err.response.data.message)
-      } else {
-        setError('Invalid email or password')
-      }
+    } catch (err: any) {
+      showToast(err.message || ERROR_MESSAGES.UNAUTHORIZED, 'error')
     }
   }
 
   return (
     <AnimatePresence mode="wait">
       <motion.div 
-        className={`min-h-screen flex items-center justify-center ${themeStyles.background}`}
+        className={`min-h-screen flex flex-col items-center justify-center ${themeStyles.background}`}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
@@ -49,6 +49,17 @@ export const Login: React.FC = () => {
           opacity: 0.98
         }}
       >
+        <div className="mb-1 w-full max-w-md flex justify-center">
+          <img 
+            src={currentTheme === 'dark' 
+              ? '/images/Logo_Full_Dark_Mode-removebg-preview.png'
+              : '/images/Logo_Full_Light_mode-removebg-preview.png'
+            } 
+            alt="ConstroMan Logo" 
+            className="w-4/5 h-auto"
+          />
+        </div>
+
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -57,7 +68,7 @@ export const Login: React.FC = () => {
         >
           <div className="absolute top-4 right-4">
             <button
-              onClick={() => setCurrentTheme(current => current === 'light' ? 'dark' : 'light')}
+              onClick={() => setCurrentTheme(currentTheme === 'light' ? 'dark' : 'light')}
               className={`w-10 h-10 rounded-full ${themeStyles.cardBg} shadow-lg flex items-center justify-center`}
             >
               <motion.div
@@ -130,7 +141,7 @@ export const Login: React.FC = () => {
                   type="checkbox"
                   className={`h-4 w-4 ${themeStyles.buttonBg} focus:ring-offset-2 focus:ring-${themeStyles.buttonBg}`}
                 />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+                <label htmlFor="remember-me" className={`ml-2 block text-sm ${themeStyles.text}`}>
                   Remember me
                 </label>
               </div>
@@ -145,7 +156,7 @@ export const Login: React.FC = () => {
             <div>
               <Button
                 type="submit"
-                className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium ${themeStyles.buttonBg} ${themeStyles.buttonHoverBg} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-${themeStyles.buttonBg}`}
+                className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-full shadow-sm text-sm font-medium ${themeStyles.buttonBg} ${themeStyles.buttonHoverBg} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-${themeStyles.buttonBg}`}
               >
                 Sign in
               </Button>
@@ -153,13 +164,13 @@ export const Login: React.FC = () => {
           </form>
 
           <div className="space-y-2">
-            <p className="text-center text-sm text-gray-600">
+            <p className={`text-center text-sm ${themeStyles.text}`}>
               Don't have an account?{' '}
               <Link to="/signup" className="font-medium text-teal-600 hover:text-teal-500">
                 Sign up
               </Link>
             </p>
-            <p className="text-center text-sm text-gray-600">
+            <p className={`text-center text-sm ${themeStyles.text}`}>
               <Link to="/company-login" className="font-medium text-teal-600 hover:text-teal-500">
                 Company Login
               </Link>

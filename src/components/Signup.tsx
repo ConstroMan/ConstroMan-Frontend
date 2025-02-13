@@ -4,6 +4,11 @@ import { Input } from './ui/Input.tsx'
 import { signup, companySignup, getCompanies } from '../services/api.ts'
 import { useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTheme } from '../contexts/ThemeContext'
+import { Sun, Moon } from 'lucide-react'
+import { themes } from '../utils/theme'
+import { useToast } from '../contexts/ToastContext'
+import { ERROR_MESSAGES } from '../constants/errorMessages'
 
 export const Signup: React.FC = () => {
   const [name, setName] = useState('')
@@ -17,6 +22,9 @@ export const Signup: React.FC = () => {
   const navigate = useNavigate()
   const [companies, setCompanies] = useState<Array<{ id: number; name: string }>>([])
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const { currentTheme, setCurrentTheme } = useTheme()
+  const themeStyles = themes[currentTheme]
+  const { showToast } = useToast()
 
   useEffect(() => {
     const fetchCompanies = async () => {
@@ -42,9 +50,14 @@ export const Signup: React.FC = () => {
         const response = await companySignup({
           name: company,
           email,
-          password
+          password,
+          contact: contact || '',
+          address: '',
+          office_phone: '',
+          website: ''
         })
-        console.log('Company signup successful:', response)
+        showToast('Company signup successful', 'success')
+        navigate('/company-login')
       } else {
         const selectedCompany = companies.find(c => c.name === company)
         if (!selectedCompany) {
@@ -59,24 +72,64 @@ export const Signup: React.FC = () => {
           contact,
           designation
         })
-        console.log('Employee signup successful:', response)
+        showToast('Employee signup successful', 'success')
+        navigate('/login')
       }
-      navigate('/login')
-    } catch (err) {
-      console.error('Signup error:', err)
-      if (err.response && err.response.data && err.response.data.message) {
-        setError(err.response.data.message)
-      } else {
-        setError('Signup failed. Please try again.')
-      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to sign up. Please try again.', 'error')
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-100 to-teal-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-2xl">
+    <motion.div 
+      className={`min-h-screen flex flex-col items-center justify-center ${themeStyles.background}`}
+    >
+      <div className="mb-1 w-full max-w-md flex justify-center">
+        <img 
+          src={currentTheme === 'dark' 
+            ? '/images/Logo_Full_Dark_Mode-removebg-preview.png'
+            : '/images/Logo_Full_Light_mode-removebg-preview.png'
+          } 
+          alt="ConstroMan Logo" 
+          className="w-4/5 h-auto"
+        />
+      </div>
+
+      <motion.div 
+        className={`max-w-md w-full space-y-8 ${themeStyles.cardBg} p-10 rounded-xl shadow-2xl relative`}
+      >
+        <div className="absolute top-4 right-4">
+          <button
+            onClick={() => setCurrentTheme(currentTheme === 'light' ? 'dark' : 'light')}
+            className={`w-10 h-10 rounded-full ${themeStyles.cardBg} shadow-lg flex items-center justify-center`}
+          >
+            <motion.div
+              initial={false}
+              animate={{
+                rotate: currentTheme === 'light' ? 0 : 180,
+                scale: currentTheme === 'light' ? 1 : 0
+              }}
+              transition={{ duration: 0.3 }}
+              className="absolute"
+            >
+              <Sun className={themeStyles.subtext} />
+            </motion.div>
+            <motion.div
+              initial={false}
+              animate={{
+                rotate: currentTheme === 'light' ? -180 : 0,
+                scale: currentTheme === 'light' ? 0 : 1
+              }}
+              transition={{ duration: 0.3 }}
+              className="absolute"
+            >
+              <Moon className={themeStyles.subtext} />
+            </motion.div>
+          </button>
+        </div>
+
         <div>
-          <h2 className="text-center text-3xl font-extrabold text-gray-900">
+          <h2 className={`text-center text-3xl font-extrabold ${themeStyles.text}`}>
             {isCompanySignup ? "Create your company account" : "Create your ConstroMan account"}
           </h2>
         </div>
@@ -91,6 +144,7 @@ export const Signup: React.FC = () => {
               placeholder="Full Name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-full`}
             />
             <Input
               id="email-address"
@@ -101,6 +155,7 @@ export const Signup: React.FC = () => {
               placeholder="Email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-full`}
             />
             <Input
               id="password"
@@ -111,18 +166,19 @@ export const Signup: React.FC = () => {
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-full`}
             />
             {!isCompanySignup && (
               <>
                 <div className="relative">
                   <button
                     type="button"
-                    className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-teal-500 focus:border-teal-500 focus:z-10 sm:text-sm"
+                    className={`w-full px-4 py-2 border rounded-full text-left ${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500`}
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   >
                     {company || "Select a company"}
-                    <span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                      <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <span className="absolute inset-y-0 right-0 flex items-center pr-4">
+                      <svg className={`h-5 w-5 ${themeStyles.text}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                         <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                       </svg>
                     </span>
@@ -134,12 +190,12 @@ export const Signup: React.FC = () => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.2 }}
-                        className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm"
+                        className={`absolute z-10 mt-1 w-full ${themeStyles.cardBg} shadow-lg max-h-60 rounded-xl py-1 text-base overflow-auto focus:outline-none sm:text-sm`}
                       >
                         {companies.map((company, index) => (
                           <li
                             key={index}
-                            className="text-gray-900 cursor-default select-none relative py-2 pl-3 pr-9 hover:bg-teal-100"
+                            className={`cursor-pointer select-none relative py-2 px-4 ${themeStyles.text} hover:bg-teal-500 hover:text-white transition-colors duration-150`}
                             onClick={() => {
                               setCompany(company.name)
                               setIsDropdownOpen(false)
@@ -160,6 +216,7 @@ export const Signup: React.FC = () => {
                   placeholder="Contact Number"
                   value={contact}
                   onChange={(e) => setContact(e.target.value)}
+                  className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-full`}
                 />
                 <Input
                   id="designation"
@@ -169,6 +226,7 @@ export const Signup: React.FC = () => {
                   placeholder="Designation"
                   value={designation}
                   onChange={(e) => setDesignation(e.target.value)}
+                  className={`${themeStyles.inputBg} ${themeStyles.text} border-${themeStyles.borderColor} rounded-full`}
                 />
               </>
             )}
@@ -177,20 +235,20 @@ export const Signup: React.FC = () => {
           {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
 
           <div>
-            <Button type="submit" className="w-full">
+            <Button type="submit" className={`w-full ${themeStyles.buttonBg} ${themeStyles.buttonText} ${themeStyles.buttonHoverBg}`}>
               Sign up
             </Button>
           </div>
         </form>
 
         <div className="space-y-2">
-          <p className="text-center text-sm text-gray-600">
+          <p className={`text-center text-sm ${themeStyles.text}`}>
             Already have an account?{' '}
             <Link to="/login" className="font-medium text-teal-600 hover:text-teal-500">
               Sign in
             </Link>
           </p>
-          <p className="text-center text-sm text-gray-600">
+          <p className={`text-center text-sm ${themeStyles.text}`}>
             <button
               onClick={() => setIsCompanySignup(!isCompanySignup)}
               className="font-medium text-teal-600 hover:text-teal-500"
@@ -199,7 +257,7 @@ export const Signup: React.FC = () => {
             </button>
           </p>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

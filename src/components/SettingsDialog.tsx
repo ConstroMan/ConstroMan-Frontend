@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog } from './ui/Dialog';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Settings as SettingsIcon, CreditCard, X } from 'lucide-react';
+import { User, Settings as SettingsIcon, CreditCard, X, Users } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -9,6 +9,7 @@ import { Label } from './ui/Label';
 import { Switch } from './ui/Switch';
 import { getUserSettings, updateUserSettings, getPaymentInfo, changePassword } from '../services/api';
 import { ChangePasswordDialog } from './ChangePasswordDialog';
+import { TeamManagement } from './TeamManagement';
 
 
 interface SettingsDialogProps {
@@ -16,7 +17,7 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type SettingsTab = 'general' | 'account' | 'payment';
+type SettingsTab = 'general' | 'account' | 'payment' | 'team';
 
 interface UserSettings {
   email: string;
@@ -81,16 +82,17 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     { id: 'general', label: 'General', icon: SettingsIcon },
     { id: 'account', label: 'Account', icon: User },
     { id: 'payment', label: 'Payment', icon: CreditCard },
+    { id: 'team', label: 'Team & Permissions', icon: Users }
   ];
 
   const isDark = currentTheme === 'dark';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content className="min-w-[1200px] w-[95vw] h-[90vh] p-0 overflow-hidden rounded-[32px] border-0 shadow-2xl">
+      <Dialog.Content className="min-w-[1200px] w-[95vw] h-[90vh] p-0 overflow-hidden rounded-3xl border-0 shadow-2xl">
         <div className="flex h-full">
           {/* Modern Sidebar */}
-          <div className={`w-60 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+          <div className={`w-60 ${isDark ? 'bg-gray-900/95' : 'bg-gray-50'} rounded-l-3xl`}>
             <div className="p-6">
               <h2 className={`text-xl font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 Settings
@@ -104,10 +106,10 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   className={`w-full flex items-center space-x-3 px-4 py-3 mb-1 rounded-xl transition-all duration-200 ${
                     activeTab === tab.id
                       ? isDark 
-                        ? 'bg-gray-800 text-white' 
+                        ? 'bg-gray-800 text-white shadow-md' 
                         : 'bg-white text-gray-900 shadow-sm'
                       : isDark
-                        ? 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                        ? 'text-gray-400 hover:bg-gray-800/80 hover:text-white'
                         : 'text-gray-600 hover:bg-white hover:text-gray-900'
                   }`}
                 >
@@ -119,7 +121,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           </div>
 
           {/* Content Area */}
-          <div className={`flex-1 flex flex-col ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className={`flex-1 flex flex-col ${isDark ? 'bg-gray-800/95' : 'bg-white'} rounded-r-3xl`}>
             {/* Header */}
             <div className="flex justify-between items-center p-6">
               <h3 className={`text-xl font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -130,7 +132,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 size="icon"
                 onClick={() => onOpenChange(false)}
                 className={`rounded-full h-8 w-8 ${
-                  isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                  isDark ? 'hover:bg-gray-700/50' : 'hover:bg-gray-100'
                 }`}
               >
                 <X className="h-4 w-4" />
@@ -146,7 +148,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   </div>
                 </div>
               ) : error ? (
-                <div className="text-red-500 text-center p-4 rounded-lg bg-red-50 dark:bg-red-900/20">
+                <div className={`text-red-500 text-center p-4 rounded-lg ${
+                  isDark ? 'bg-red-900/20' : 'bg-red-50'
+                }`}>
                   {error}
                 </div>
               ) : (
@@ -204,7 +208,7 @@ function AnimateContent({
 
   const SettingCard = ({ children }: { children: React.ReactNode }) => (
     <div className={`p-6 rounded-2xl mb-6 max-w-4xl ${
-      isDark ? 'bg-gray-900' : 'bg-gray-50'
+      isDark ? 'bg-gray-900/80' : 'bg-gray-50'
     }`}>
       {children}
     </div>
@@ -343,6 +347,11 @@ function AnimateContent({
             </div>
           )}
         </SettingCard>
+      </div>
+    ),
+    team: (
+      <div className="space-y-6">
+        <TeamManagement isDark={isDark} />
       </div>
     ),
   };

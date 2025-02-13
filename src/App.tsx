@@ -12,6 +12,8 @@ import { AnimatePresence } from 'framer-motion'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { ToastProvider } from './contexts/ToastContext'
 import { NotFound } from './pages/NotFound'
+import { Login } from './components/Login'
+import { Signup } from './components/Signup'
 
 const App: React.FC = () => {
   return (
@@ -24,6 +26,8 @@ const App: React.FC = () => {
                 {/* Public routes */}
                 <Route path="/company-login" element={<CompanyLogin />} />
                 <Route path="/company-signup" element={<CompanySignup />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
                 <Route path="/payment" element={<PaymentGateway />} />
                 <Route path="/" element={<CompanyLogin />} />
 
