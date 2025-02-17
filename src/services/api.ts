@@ -57,26 +57,69 @@ export const login = async (email: string, password: string) => {
   try {
     console.log('Making user login request...');
     const response = await api.post('/api/user/login', { email, password });
-    const { token, user } = response.data;
+    
+    // Debug log to see the raw response
+    console.log('Raw response:', response);
+    console.log('Response data:', response.data);
+    
+    // Validate response data with more specific error messages
+    if (!response.data) {
+      throw new Error('No response data received from server');
+    }
+    if (!response.data.access_token) {
+      throw new Error('No access token received in response');
+    }
+    
+    // Get the token from access_token field
+    const token = response.data.access_token;
+    const user = {
+      id: response.data.user_id,
+      company_id: response.data.company_id,
+      type: 'user',
+      role: 'employee'
+    };
+    
+    // Debug log for user object
+    console.log('User data:', user);
     
     // Store token
     localStorage.setItem('token', token);
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     
-    // Store complete identity information
+    // Store complete identity information matching backend structure
     const identity = {
       type: 'user',
       id: user.id,
-      role: user.role,
-      permissions: user.permissions || []
+      role: 'employee',
+      permissions: [], // Backend doesn't send permissions yet
+      company_id: user.company_id
     };
+    
+    // Debug log for identity object
+    console.log('Identity to be stored:', identity);
+    
     localStorage.setItem('userIdentity', JSON.stringify(identity));
     localStorage.setItem('userType', 'employee');
     
-    console.log('Stored user identity:', identity);
-    return response.data;
-  } catch (error) {
+    return {
+      token,
+      user: {
+        ...user,
+        permissions: [] // Add permissions to match expected structure
+      }
+    };
+  } catch (error: any) {
+    // Enhanced error logging
     console.error('User login error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+    
+    if (error.response?.data?.error) {
+      throw new Error(error.response.data.error);
+    }
     throw error;
   }
 };
@@ -90,29 +133,19 @@ export const signup = async (userData: {
   designation: string
 }) => {
   try {
-    const response = await api.post('/api/user/signup', userData)
-    const { token, user } = response.data
+    const response = await api.post('/api/user/signup', userData);
+    console.log('Raw signup response:', response); // Add debug log
     
-    // Store token and identity information
-    setAuthToken(token)
-    
-    const identity = {
-      type: 'user',
-      id: user.id,
-      role: user.role,
-      permissions: user.permissions || []
-    };
-    localStorage.setItem('userIdentity', JSON.stringify(identity))
-    localStorage.setItem('userType', 'employee')
-    
-    return response.data
-  } catch (error) {
+    // Return the data directly
+    return response.data;
+  } catch (error: any) {
+    console.error('Signup API error:', error);
     if (error.response) {
-      throw error.response.data
+      throw error.response.data;
     }
-    throw error
+    throw error;
   }
-}
+};
 
 export const sendMessage = async (query: string, project: string) => {
   try {
@@ -766,36 +799,25 @@ export const sendVerificationCode = async (identifier: string, type: 'phone' | '
   }
 };
 
+interface VerificationResponse {
+  message: string;
+  verified: boolean;
+  user_id?: number;
+}
+
 export const verifyCode = async (verificationData: {
   identifier: string;
   code: string;
-  entity_type: 'company' | 'user';
-  entity_id: number;
+  entity_type: 'company' | 'user' | 'employee';
+  entity_id: string | number;
   type: 'phone' | 'email';
 }) => {
   try {
-    console.log('Making verification API call with data:', verificationData); // Debug log
-    
-    // Ensure the API base URL is correct
-    console.log('API base URL:', api.defaults.baseURL); // Debug log
-    
-    // Make the API call with explicit configuration
-    const response = await api.post('/api/verify/check', verificationData, {
-      headers: {
-        'Content-Type': 'application/json',
-        // Include any auth headers if needed
-        ...(localStorage.getItem('token') ? {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        } : {})
-      }
-    });
-    
-    console.log('Verification API response:', response.data); // Debug log
+    const response = await api.post('/api/verify/check', verificationData);
     return response.data;
-  } catch (error) {
-    console.error('Full verification error:', error); // More detailed error log
+  } catch (error: any) {
+    console.error('Verification error:', error);
     if (error.response) {
-      console.error('Error response:', error.response.data); // Log error response
       throw error.response.data;
     }
     throw error;
@@ -1120,6 +1142,21 @@ export const deleteProject = async (projectId: number) => {
     return response.status === 204;
   } catch (error) {
     console.error('Error deleting project:', error);
+    throw error;
+  }
+};
+
+export const userLogin = async (credentials: {
+  email: string;
+  password: string;
+}) => {
+  try {
+    const response = await api.post('/api/user/login', credentials);
+    return response.data;
+  } catch (error: any) {
+    if (error.response) {
+      throw error.response.data;
+    }
     throw error;
   }
 };

@@ -25,9 +25,20 @@ export const Login: React.FC = () => {
 
     try {
       const response = await login(email, password)
+      
+      // Store token
       localStorage.setItem('token', response.token)
+      
+      // Store user identity
+      const identity = {
+        type: 'user',
+        id: response.user.id,
+        role: response.user.role,
+        permissions: response.user.permissions || []
+      }
+      localStorage.setItem('userIdentity', JSON.stringify(identity))
       localStorage.setItem('userType', 'employee')
-      localStorage.setItem('userPermissions', JSON.stringify(response.permissions || []))
+      
       showToast('Successfully logged in', 'success')
       navigate('/projects')
     } catch (err: any) {

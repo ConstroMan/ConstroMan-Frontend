@@ -14,6 +14,7 @@ import { Theme, themes } from '../utils/theme'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { ChartRenderer } from './ChartRenderer.tsx';
 import { NavBar } from './NavBar';
+import { useToast } from '../contexts/ToastContext';
 
 
 interface ProjectFile {
@@ -99,6 +100,7 @@ export function ProjectDetails() {
   const [pinnedCharts, setPinnedCharts] = useState<SavedChart[]>([]);
   const [updatingFiles, setUpdatingFiles] = useState<Set<number>>(new Set());
   const [isLoadingPinnedCharts, setIsLoadingPinnedCharts] = useState(true);
+  const { showToast } = useToast();
 
   useEffect(() => {
     fetchProjectDetails();
@@ -170,6 +172,18 @@ export function ProjectDetails() {
     const files = e.target.files;
     if (!files || !projectId) return;
 
+    // Check file size before uploading
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    for (let i = 0; i < files.length; i++) {
+      if (files[i].size > maxSize) {
+        showToast('File size exceeds 10MB limit. Please upload smaller files.', 'error');
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      }
+    }
+
     try {
       setIsUploading(true);
       // Add temporary IDs for loading state
@@ -185,7 +199,11 @@ export function ProjectDetails() {
       }
     } catch (error) {
       console.error('Error uploading files:', error);
-      setError('Failed to upload files');
+      if (error.response?.status === 413) {
+        showToast('File size exceeds 10MB limit. Please upload smaller files.', 'error');
+      } else {
+        setError('Failed to upload files');
+      }
     } finally {
       setIsUploading(false);
       setProcessingFiles(new Set());
