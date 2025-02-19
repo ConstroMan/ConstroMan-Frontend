@@ -6,7 +6,18 @@
       "destination": "https://www.constroman.co.in/api/:path*"
     },
     {
-      "source": "/(.*)",
+      "source": "/:path*/",
+      "destination": "/:path*"
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "header",
+          "key": "accept",
+          "value": "text/html"
+        }
+      ],
       "destination": "/index.html"
     }
   ],
@@ -31,6 +42,10 @@
         {
           "key": "Access-Control-Allow-Credentials",
           "value": "true"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
         }
       ]
     }

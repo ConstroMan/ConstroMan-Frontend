@@ -16,9 +16,8 @@ export const useSessionTimeout = () => {
       // Show toast message
       showToast(ERROR_MESSAGES.SESSION_TIMEOUT, 'error');
 
-      // Redirect to appropriate login page
-      const userType = localStorage.getItem('userType');
-      navigate(userType === 'company' ? '/company-login' : '/login');
+      // Use navigate instead of direct URL manipulation
+      navigate('/company-login');
     };
 
     // Set up event listener for timeout
