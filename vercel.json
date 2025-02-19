@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://www.constroman.co.in/api/:path*"
+      "destination": "https://www.constroman.co.in/:path*"
     },
     {
       "source": "/:path*",
