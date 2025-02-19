@@ -6,6 +6,26 @@
       "destination": "https://api.constroman.co.in/api/:path*"
     },
     {
+      "source": "/company-login",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/settings/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/projects/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/team/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/dashboard/:path*",
+      "destination": "/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

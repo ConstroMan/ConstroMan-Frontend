@@ -26,9 +26,17 @@ api.interceptors.request.use(
       config.headers['Authorization'] = `Bearer ${jwtToken}`
     }
     
+    console.log('Request:', {
+      url: config.url,
+      method: config.method,
+      headers: config.headers,
+      data: config.data
+    });
+    
     return config
   },
   (error) => {
+    console.error('Request error:', error);
     return Promise.reject(error)
   }
 )
@@ -160,23 +168,36 @@ export const sendMessage = async (query: string, project: string) => {
 }
 
 export const uploadFile = async (file: File, projectId: number, isQuotation: boolean = false, isUpdate: boolean = false) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  formData.append('project', projectId.toString())
-  formData.append('is_quotation', isQuotation.toString())
-  formData.append('is_update', isUpdate.toString())
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('project', projectId.toString());
+  formData.append('is_quotation', isQuotation.toString());
+  formData.append('is_update', isUpdate.toString());
   
   try {
+    console.log('Uploading file:', {
+      fileName: file.name,
+      projectId,
+      isQuotation,
+      isUpdate
+    });
+    
     const response = await api.post('/api/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-    })
-    return response.data
-  } catch (error) {
-    throw error
+    });
+    console.log('Upload response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('Upload error:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    throw error;
   }
-}
+};
 
 export const getProjects = async () => {
   try {
@@ -333,8 +354,14 @@ export const getProjectDetails = async (projectId: number) => {
   try {
     const response = await api.get(`/api/projects/${projectId}`)
     return response.data
-  } catch (error) {
-    throw error
+  } catch (error: any) {
+    console.error('Error fetching project details:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    // Return null or empty object instead of throwing
+    return null;
   }
 }
 
@@ -347,14 +374,39 @@ export const getProjectPL = async (projectId: number) => {
   }
 }
 
-export const getProjectFiles = async (projectId: number) => {
+export const getProjectFiles = async (projectId: number, showToast?: (message: string, type: string) => void) => {
   try {
-    const response = await api.get(`/api/projects/${projectId}/files`)
-    return response.data
-  } catch (error) {
-    throw error
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('No auth token found');
+      throw new Error('Authentication required');
+    }
+
+    console.log('Fetching files with token:', token.substring(0, 10) + '...');
+    
+    const response = await api.get(`/api/projects/${projectId}/files`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      withCredentials: true // Add this for CORS with credentials
+    });
+
+    console.log('Files response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching project files:', {
+      error,
+      status: error.response?.status,
+      data: error.response?.data,
+      headers: error.response?.headers
+    });
+    if (showToast) {
+      showToast(`Error loading files: ${error.response?.data?.error || error.message}`, 'error');
+    }
+    return [];
   }
-}
+};
 
 export const deleteProjectFile = async (projectId: number, fileId: number) => {
   try {
@@ -503,9 +555,16 @@ interface ProjectDashboardChart {
 // Update the function to toggle pin status
 export const toggleChartPin = async (projectId: number, chartId: number) => {
   try {
+    console.log('Toggling chart pin:', { projectId, chartId });
     const response = await api.patch(`/api/projects/${projectId}/charts/${chartId}/pin`);
+    console.log('Toggle pin response:', response.data);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
+    console.error('Error toggling chart pin:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data
+    });
     throw error;
   }
 };
@@ -1158,5 +1217,15 @@ export const userLogin = async (credentials: {
       throw error.response.data;
     }
     throw error;
+  }
+};
+
+// Add a function to check backend version/health
+export const checkBackendHealth = async () => {
+  try {
+    await api.get('/health');
+    return true;
+  } catch (error) {
+    return false;
   }
 };

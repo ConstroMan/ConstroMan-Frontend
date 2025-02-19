@@ -103,8 +103,14 @@ export function ProjectDetails() {
   const { showToast } = useToast();
 
   useEffect(() => {
+    const currentProjectId = projectId; // Capture current ID
+    
+    if (!currentProjectId) return;
+    
     fetchProjectDetails();
-  }, [projectId]);
+    
+    // Only re-run if projectId actually changes
+  }, [projectId?.toString()]);
 
   useEffect(() => {
     const fetchPinnedCharts = async () => {
@@ -146,7 +152,7 @@ export function ProjectDetails() {
       // Only fetch PL data and files if we have project details
       const [plData, filesData] = await Promise.all([
         getProjectPL(numericProjectId),
-        getProjectFiles(numericProjectId)
+        getProjectFiles(numericProjectId, (message, type) => showToast(message, type as "success" | "error" | "warning" | "info"))
       ]);
       
       setProfitLoss(plData);
@@ -314,9 +320,8 @@ export function ProjectDetails() {
 
   const getProjectFilesList = () => {
     if (!project) return [];
-    // Access the nested files array
-    const files = project.files?.files || project.files;
-    if (!files) return [];
+    // project.files is already the array we need
+    const files = project.files;
     if (!Array.isArray(files)) {
       console.warn('Project files is not an array:', files);
       return [];
@@ -336,9 +341,9 @@ export function ProjectDetails() {
   }
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence mode="sync">
       <motion.div 
-        key="project-details"
+        key={`project-${projectId}`}
         initial={{ opacity: 0, x: 300 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -300 }}
@@ -477,7 +482,7 @@ export function ProjectDetails() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
                   {pinnedCharts.map((chart) => (
-                    <Card key={chart.id} className={`${themeStyles.cardBg} shadow-lg overflow-hidden`}>
+                    <Card key={chart.id || `chart-${chart.id}`} className={`${themeStyles.cardBg} shadow-lg overflow-hidden`}>
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 border-b">
                         <CardTitle className={`text-base font-medium ${themeStyles.text}`}>
                           {chart.name}
@@ -573,7 +578,7 @@ export function ProjectDetails() {
                             ) : (
                               <>
                                 {getProjectFilesList().map((file, index) => (
-                                  <tr key={file.id} className={`border-b ${themeStyles.borderColor}`}>
+                                  <tr key={file.id || `file-${file.id}`} className={`border-b ${themeStyles.borderColor}`}>
                                     <td className={`px-6 py-4 whitespace-nowrap text-sm ${themeStyles.text}`}>
                                       {updatingFiles.has(file.id) ? (
                                         <div className="flex items-center">
