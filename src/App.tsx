@@ -24,12 +24,12 @@ const App: React.FC = () => {
             <div className="min-h-screen">
               <Routes>
                 {/* Public routes */}
+                <Route path="/" element={<CompanyLogin />} />
                 <Route path="/company-login" element={<CompanyLogin />} />
                 <Route path="/company-signup" element={<CompanySignup />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/payment" element={<PaymentGateway />} />
-                <Route path="/" element={<CompanyLogin />} />
 
                 {/* Protected routes that require payment */}
                 <Route

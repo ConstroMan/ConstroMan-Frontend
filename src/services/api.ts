@@ -434,9 +434,8 @@ export const logout = () => {
   localStorage.clear()
   sessionStorage.clear()
   
-  // Clear all browser history and redirect
-  window.history.pushState(null, '', '/company-login')
-  window.history.go(0)
+  // Instead of using window.history, use window.location
+  window.location.href = '/'
 }
 
 // Add these new interfaces
