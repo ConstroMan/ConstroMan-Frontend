@@ -1,15 +1,12 @@
 {
   "version": 2,
-  "redirects": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://api.constroman.co.in/api/:path*",
-      "permanent": false
-    }
-  ],
   "rewrites": [
     {
-      "source": "/((?!api/).)*",
+      "source": "/api/:path*",
+      "destination": "https://www.constroman.co.in/api/:path*"
+    },
+    {
+      "source": "/:path*",
       "destination": "/index.html"
     }
   ],
@@ -37,7 +34,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
+          "value": "s-maxage=1, stale-while-revalidate"
         }
       ]
     }
