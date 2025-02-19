@@ -4,7 +4,7 @@ import { useToast } from '../contexts/ToastContext';
 import { ERROR_MESSAGES } from '../constants/errorMessages';
 import { Permission, Role, TeamMember } from '../types/roles';
 
-const API_URL = 'https://api.constroman.co.in'
+const API_URL = 'http://127.0.0.1:5000'
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -421,12 +421,13 @@ export const downloadProjectFile = async (projectId: number, fileId: number) => 
   try {
     const response = await api.get(`/api/projects/${projectId}/files/${fileId}/download`, {
       responseType: 'blob',
-    })
-    return response.data
+    });
+    return response.data;
   } catch (error) {
-    throw error
+    console.error('Download error:', error);
+    throw error;
   }
-}
+};
 
 export const logout = () => {
   setAuthToken(null)

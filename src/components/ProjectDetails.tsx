@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from './ui/Button';
 import { MessageSquare, Trash2, Loader2, Plus, Edit, BarChart2, FileSpreadsheet, ChevronLeft, Sun, Moon, DownloadIcon, Download, FileEdit, X, LineChart } from 'lucide-react';
-import { getProjectDetails, uploadFile, getProjectPL, getProjectFiles, deleteProjectFile, toggleChartPin, Dashboard, getProjectCharts, getProjectDashboardCharts, removeChartFromDashboard } from '../services/api';
+import { getProjectDetails, uploadFile, getProjectPL, getProjectFiles, deleteProjectFile, toggleChartPin, Dashboard, getProjectCharts, getProjectDashboardCharts, removeChartFromDashboard, downloadProjectFile } from '../services/api';
 import { LineChart as RechartsLineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from 'recharts';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/Card.tsx';
 import { Dialog } from './ui/Dialog';
@@ -329,6 +329,38 @@ export function ProjectDetails() {
     return files;
   };
 
+  const handleDownloadFile = async (file: ProjectFile) => {
+    if (!projectId) return;
+    
+    try {
+      const response = await downloadProjectFile(parseInt(projectId), file.id);
+      
+      // Create a blob from the response data
+      const blob = new Blob([response], { type: 'application/octet-stream' });
+      
+      // Create a temporary URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a temporary anchor element
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name; // Use the original filename
+      document.body.appendChild(a);
+      
+      // Trigger the download
+      a.click();
+      
+      // Clean up
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      showToast('File download started', 'success');
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      showToast('Failed to download file', 'error');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-100/50 to-teal-100/50 backdrop-blur-sm">
@@ -610,7 +642,10 @@ export function ProjectDetails() {
                                         >
                                           <FileEdit className="h-5 w-5" />
                                         </button>
-                                        <button className={`${themeStyles.text} hover:${themeStyles.linkHoverColor}`}>
+                                        <button 
+                                          onClick={() => handleDownloadFile(file)}
+                                          className={`${themeStyles.text} hover:${themeStyles.linkHoverColor}`}
+                                        >
                                           <Download className="h-5 w-5" />
                                         </button>
                                         <button 
