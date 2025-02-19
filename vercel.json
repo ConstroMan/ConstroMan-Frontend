@@ -1,19 +1,15 @@
 {
   "version": 2,
-  "rewrites": [
+  "redirects": [
     {
       "source": "/api/:path*",
-      "destination": "https://api.constroman.co.in/api/:path*"
-    },
+      "destination": "https://api.constroman.co.in/api/:path*",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
     {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "header",
-          "key": "accept",
-          "value": "text/html"
-        }
-      ],
+      "source": "/((?!api/).)*",
       "destination": "/index.html"
     }
   ],
