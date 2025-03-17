@@ -92,6 +92,8 @@ export function ProjectDetails() {
   const [fileToDelete, setFileToDelete] = useState<ProjectFile | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteMessage, setShowDeleteMessage] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [fileBeingDeleted, setFileBeingDeleted] = useState<number | null>(null);
   const { currentTheme, setCurrentTheme } = useTheme();
   const themeStyles = themes[currentTheme];
   const [processingFiles, setProcessingFiles] = useState<Set<number>>(new Set());
@@ -220,26 +222,31 @@ export function ProjectDetails() {
     if (!projectId) return;
     try {
       setIsDeleting(true);
-      // Immediately update UI by removing the file from the project state
+      setFileBeingDeleted(fileId);
+      setDeleteError(null);
+      
+      // Continue with backend deletion
+      await deleteProjectFile(parseInt(projectId), fileId);
+      
+      // Show success toast
+      showToast('File deleted successfully', 'success');
+      
+      // Now remove from UI after successful deletion
       setProject(prev => prev ? {
         ...prev,
         files: prev.files.filter(file => file.id !== fileId)
       } : null);
       
-      // Close dialog and show message
+      // Close dialog
       setIsDeleteDialogOpen(false);
-      setShowDeleteMessage(true);
       
-      // Continue with backend deletion
-      await deleteProjectFile(parseInt(projectId), fileId);
-      
-      // Hide the message after 5 seconds
-      setTimeout(() => setShowDeleteMessage(false), 5000);
+      // Clear file being deleted after animation completes (500ms)
+      setTimeout(() => setFileBeingDeleted(null), 500);
     } catch (error) {
       console.error('Error deleting file:', error);
-      setError('Failed to delete file. Please try again.');
-      // Optionally refresh to get the correct state if backend deletion failed
-      await fetchProjectDetails();
+      setDeleteError('Failed to delete file. Please try again.');
+      showToast('Failed to delete file', 'error');
+      setFileBeingDeleted(null);
     } finally {
       setIsDeleting(false);
     }
@@ -610,7 +617,16 @@ export function ProjectDetails() {
                             ) : (
                               <>
                                 {getProjectFilesList().map((file, index) => (
-                                  <tr key={file.id || `file-${file.id}`} className={`border-b ${themeStyles.borderColor}`}>
+                                  <motion.tr 
+                                    key={file.id || `file-${file.id}`} 
+                                    className={`border-b ${themeStyles.borderColor}`}
+                                    initial={fileBeingDeleted === file.id ? { scale: 1 } : {}}
+                                    animate={fileBeingDeleted === file.id ? 
+                                      { scale: [1, 0.95, 0.9, 0.85, 0], opacity: [1, 0.8, 0.6, 0.4, 0] } : 
+                                      {}
+                                    }
+                                    transition={{ duration: 0.5 }}
+                                  >
                                     <td className={`px-6 py-4 whitespace-nowrap text-sm ${themeStyles.text}`}>
                                       {updatingFiles.has(file.id) ? (
                                         <div className="flex items-center">
@@ -659,7 +675,7 @@ export function ProjectDetails() {
                                         </button>
                                       </div>
                                     </td>
-                                  </tr>
+                                  </motion.tr>
                                 ))}
                                 {/* Add loading rows */}
                                 {Array.from(processingFiles).map((tempId) => (
@@ -732,7 +748,7 @@ export function ProjectDetails() {
       </Dialog>
 
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <Dialog.Content className={`${themeStyles.cardBg} sm:max-w-[425px] p-6 rounded-lg shadow-xl`}>
+        <Dialog.Content className={`${themeStyles.cardBg} sm:max-w-[425px] p-6 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700`}>
           <Dialog.Header className="mb-4">
             <Dialog.Title className={`text-xl font-semibold ${themeStyles.text}`}>
               Confirm Deletion
@@ -741,11 +757,16 @@ export function ProjectDetails() {
               Are you sure you want to delete "{fileToDelete?.name}"? This action cannot be undone.
             </Dialog.Description>
           </Dialog.Header>
-          <Dialog.Footer className="mt-6 flex justify-end space-x-2">
+          {deleteError && (
+            <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg">
+              <p className="text-sm">{deleteError}</p>
+            </div>
+          )}
+          <Dialog.Footer className="mt-6 flex justify-end space-x-3">
             <Button
               variant="outline"
               onClick={() => setIsDeleteDialogOpen(false)}
-              className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors duration-200"
+              className="bg-gray-100 text-gray-700 px-5 py-2.5 rounded-full hover:bg-gray-200 transition-all duration-200 shadow-sm hover:shadow border border-gray-200"
             >
               Cancel
             </Button>
@@ -753,7 +774,7 @@ export function ProjectDetails() {
               variant="primary"
               onClick={() => fileToDelete && handleDeleteFile(fileToDelete.id)}
               disabled={isDeleting}
-              className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors duration-200 flex items-center"
+              className="bg-red-600 text-white px-5 py-2.5 rounded-full hover:bg-red-700 transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center min-w-[80px]"
             >
               {isDeleting ? (
                 <>
@@ -767,14 +788,6 @@ export function ProjectDetails() {
           </Dialog.Footer>
         </Dialog.Content>
       </Dialog>
-
-      {showDeleteMessage && (
-        <div className="flex items-center justify-center p-4 bg-teal-50 border-t">
-          <span className="text-teal-600 text-sm">
-            File deleted successfully. Changes may take some time to reflect in chat.
-          </span>
-        </div>
-      )}
     </AnimatePresence>
   );
 }

@@ -29,7 +29,13 @@ export function ProjectSelector() {
     files: null
   });
   const [userType, setUserType] = useState<'company' | 'employee'>('employee');
-  const [isLoading, setIsLoading] = useState(false);
+  
+  // Separate loading states for different operations
+  const [isFetchingProjects, setIsFetchingProjects] = useState(false);
+  const [isSelectingProject, setIsSelectingProject] = useState(false);
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
+  
   const { currentTheme, setCurrentTheme } = useTheme();
   const themeStyles = themes[currentTheme];
   const navigate = useNavigate();
@@ -51,7 +57,7 @@ export function ProjectSelector() {
 
   const fetchProjects = async () => {
     try {
-      setIsLoading(true);
+      setIsFetchingProjects(true);
       const fetchedProjects = await getAllAccessibleProjects();
       setProjects(Array.isArray(fetchedProjects) ? fetchedProjects : []);
       
@@ -64,13 +70,13 @@ export function ProjectSelector() {
       );
       setProjects([]);
     } finally {
-      setIsLoading(false);
+      setIsFetchingProjects(false);
     }
   };
 
   const handleProjectSelect = async (projectId: string) => {
     try {
-      setIsLoading(true);
+      setIsSelectingProject(true);
       setSelectedProject(projectId);
       showToast('Project selected successfully', 'success');
       navigate(`/project/${projectId}`);
@@ -80,13 +86,13 @@ export function ProjectSelector() {
         'error'
       );
     } finally {
-      setIsLoading(false);
+      setIsSelectingProject(false);
     }
   };
 
   const handleNewProjectSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
+    setIsCreatingProject(true)
     try {
       await addProject({
         name: newProject.name,
@@ -103,7 +109,7 @@ export function ProjectSelector() {
       console.error('Error adding new project:', error)
       setError(error.response?.data?.message || 'Failed to add new project. Please try again.')
     } finally {
-      setIsLoading(false)
+      setIsCreatingProject(false)
     }
   }
 
@@ -117,7 +123,7 @@ export function ProjectSelector() {
     if (!projectToDelete) return;
     
     try {
-      setIsLoading(true);
+      setIsDeletingProject(true);
       await deleteProject(Number(projectToDelete.id));
       showToast('Project deleted successfully', 'success');
       await fetchProjects();
@@ -127,7 +133,7 @@ export function ProjectSelector() {
         'error'
       );
     } finally {
-      setIsLoading(false);
+      setIsDeletingProject(false);
       setIsDeleteDialogOpen(false);
       setProjectToDelete(null);
     }
@@ -267,67 +273,76 @@ export function ProjectSelector() {
           {error && <p className="text-red-500 text-center">{error}</p>}
 
           <div className="space-y-6">
-            <div className={`
-              ${viewMode === 'grid' 
-                ? 'grid grid-cols-2 gap-3'
-                : 'space-y-3'
-              }`}
-            >
-              {filteredProjects.length > 0 ? (
-                filteredProjects.map((project) => (
-                  <Button
-                    key={project.id}
-                    onClick={() => handleProjectSelect(project.id)}
-                    className={`
-                      ${viewMode === 'grid' 
-                        ? `h-28 flex-col justify-start p-4 rounded-xl text-left`
-                        : `w-full rounded-full`
-                      }
-                      ${themeStyles.buttonBg} 
-                      ${themeStyles.buttonText} 
-                      ${themeStyles.buttonHoverBg}
-                      transition-all duration-200
-                      hover:scale-102
-                      hover:shadow-md
-                      active:scale-98
-                      flex items-start
-                      relative
-                    `}
-                  >
-                    {viewMode === 'grid' ? (
-                      <>
-                        <h3 className="text-base font-semibold mb-1">{project.name}</h3>
-                        <p className={`text-xs ${themeStyles.subtext}`}>Click to view details</p>
-                        {userType === 'company' && (
-                          <button
-                            onClick={(e) => handleDeleteProject(e, project)}
-                            className="absolute top-2 right-2 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900 transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          </button>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <span>{project.name}</span>
-                        {userType === 'company' && (
-                          <button
-                            onClick={(e) => handleDeleteProject(e, project)}
-                            className="absolute right-4 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900 transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </Button>
-                ))
-              ) : (
-                <div className={`text-center ${themeStyles.subtext} py-4`}>
-                  {isLoading ? 'Loading projects...' : 'No projects found'}
-                </div>
-              )}
-            </div>
+            {isFetchingProjects ? (
+              <div className={`flex items-center justify-center py-8 ${themeStyles.subtext}`}>
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                <span>Loading projects...</span>
+              </div>
+            ) : (
+              <div className={`
+                ${viewMode === 'grid' 
+                  ? 'grid grid-cols-2 gap-3'
+                  : 'space-y-3'
+                }
+                max-h-[300px] overflow-y-auto pr-2
+              `}
+              >
+                {filteredProjects.length > 0 ? (
+                  filteredProjects.map((project) => (
+                    <Button
+                      key={project.id}
+                      onClick={() => handleProjectSelect(project.id)}
+                      className={`
+                        ${viewMode === 'grid' 
+                          ? `h-28 flex-col justify-start p-4 rounded-xl text-left`
+                          : `w-full rounded-full`
+                        }
+                        ${themeStyles.buttonBg} 
+                        ${themeStyles.buttonText} 
+                        ${themeStyles.buttonHoverBg}
+                        transition-all duration-200
+                        hover:scale-102
+                        hover:shadow-md
+                        active:scale-98
+                        flex items-start
+                        relative
+                      `}
+                    >
+                      {viewMode === 'grid' ? (
+                        <>
+                          <h3 className="text-base font-semibold mb-1">{project.name}</h3>
+                          <p className={`text-xs ${themeStyles.subtext}`}>Click to view details</p>
+                          {userType === 'company' && (
+                            <button
+                              onClick={(e) => handleDeleteProject(e, project)}
+                              className="absolute top-2 right-2 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <span>{project.name}</span>
+                          {userType === 'company' && (
+                            <button
+                              onClick={(e) => handleDeleteProject(e, project)}
+                              className="absolute right-4 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </Button>
+                  ))
+                ) : (
+                  <div className={`text-center ${themeStyles.subtext} py-4`}>
+                    No projects found
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </motion.div>
 
@@ -392,10 +407,10 @@ export function ProjectSelector() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isCreatingProject}
                   className={`${themeStyles.buttonBg} ${themeStyles.buttonText} ${themeStyles.buttonHoverBg}`}
                 >
-                  {isLoading ? (
+                  {isCreatingProject ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Creating...
@@ -435,10 +450,10 @@ export function ProjectSelector() {
               <Button
                 type="button"
                 onClick={confirmDeleteProject}
-                disabled={isLoading}
+                disabled={isDeletingProject}
                 className="bg-red-600 text-white hover:bg-red-700"
               >
-                {isLoading ? (
+                {isDeletingProject ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Deleting...
@@ -451,8 +466,8 @@ export function ProjectSelector() {
           </Dialog.Content>
         </Dialog>
 
-        {/* Loading Overlay */}
-        {isLoading && (
+        {/* Loading Overlay - Only show when creating a project */}
+        {isCreatingProject && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className={`${themeStyles.cardBg} p-6 rounded-lg shadow-xl max-w-sm w-full mx-4`}>
               <div className="flex flex-col items-center space-y-4">

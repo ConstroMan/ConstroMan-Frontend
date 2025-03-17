@@ -848,12 +848,23 @@ export const verifyPayment = async (paymentData: {
 
 export const sendVerificationCode = async (identifier: string, type: 'phone' | 'email') => {
   try {
+    console.log('Sending verification request:', { identifier, type });
     const response = await api.post('/api/verify/send', {
       identifier,
       type
     });
+    console.log('Verification code sent response:', response.data);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
+    // Add more specific error handling
+    console.error('Verification send error:', error);
+    console.error('Error response:', error.response?.data);
+    if (error.response?.status === 503) {
+      throw new Error('Verification service is currently unavailable');
+    }
+    if (error.response?.data?.error) {
+      throw new Error(error.response.data.error);
+    }
     throw error;
   }
 };
@@ -872,10 +883,13 @@ export const verifyCode = async (verificationData: {
   type: 'phone' | 'email';
 }) => {
   try {
+    console.log('Verifying code with data:', verificationData);
     const response = await api.post('/api/verify/check', verificationData);
+    console.log('Verification check response:', response.data);
     return response.data;
   } catch (error: any) {
     console.error('Verification error:', error);
+    console.error('Error response data:', error.response?.data);
     if (error.response) {
       throw error.response.data;
     }
