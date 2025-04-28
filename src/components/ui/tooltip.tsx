@@ -39,6 +39,9 @@ interface TooltipProps {
   children: React.ReactNode
   side?: "top" | "right" | "bottom" | "left"
   align?: "start" | "center" | "end"
+  delayDuration?: number
+  skipDelayDuration?: number
+  className?: string
 }
 
 // Add the new Floating UI-based Tooltip component
@@ -47,6 +50,9 @@ export const Tooltip = ({
   label,
   side = "top",
   align = "center",
+  delayDuration = 0,
+  skipDelayDuration = 0,
+  className,
 }: TooltipProps) => {
   const [isOpen, setIsOpen] = React.useState(false);
   const arrowRef = React.useRef(null);

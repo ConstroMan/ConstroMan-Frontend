@@ -348,18 +348,18 @@ export function ProjectSelector() {
 
         {/* Add Project Dialog */}
         <Dialog open={isAddProjectDialogOpen} onOpenChange={setIsAddProjectDialogOpen}>
-          <Dialog.Content className={`${themeStyles.cardBg} border ${currentTheme === 'dark' ? 'border-gray-700' : 'border-gray-200'} rounded-xl`}>
-            <Dialog.Header>
+          <Dialog.Content className={`${themeStyles.cardBg} border ${currentTheme === 'dark' ? 'border-gray-700' : 'border-gray-200'} rounded-2xl shadow-lg max-w-md mx-auto`}>
+            <Dialog.Header className="pb-2">
               <Dialog.Title className={`${themeStyles.text} text-xl font-semibold`}>
                 Add New Project
               </Dialog.Title>
-              <Dialog.Description className={themeStyles.subtext}>
+              <Dialog.Description className={`${themeStyles.subtext} text-sm`}>
                 Create a new project and upload related files.
               </Dialog.Description>
             </Dialog.Header>
 
             <form onSubmit={handleNewProjectSubmit}>
-              <div className="space-y-4 py-4">
+              <div className="space-y-5 py-4">
                 <div className="space-y-2">
                   <label className={`text-sm font-medium ${themeStyles.text}`}>
                     Project Name
@@ -368,7 +368,7 @@ export function ProjectSelector() {
                     value={newProject.name}
                     onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
                     placeholder="Enter project name"
-                    className={`w-full ${themeStyles.inputBg} ${themeStyles.text} border-${currentTheme === 'dark' ? 'gray-700' : 'gray-200'}`}
+                    className={`w-full ${themeStyles.inputBg} ${themeStyles.text} border-${currentTheme === 'dark' ? 'gray-700' : 'gray-200'} rounded-xl px-4 py-2 transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
                   />
                 </div>
 
@@ -376,7 +376,7 @@ export function ProjectSelector() {
                   <label className={`text-sm font-medium ${themeStyles.text}`}>
                     Project Files
                   </label>
-                  <div className={`${themeStyles.inputBg} rounded-md p-2 border ${currentTheme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <div className={`${themeStyles.inputBg} rounded-xl p-4 border ${currentTheme === 'dark' ? 'border-gray-700 hover:border-gray-600' : 'border-gray-200 hover:border-gray-300'} transition-colors duration-200`}>
                     <input
                       type="file"
                       multiple
@@ -391,15 +391,16 @@ export function ProjectSelector() {
                         transition-colors duration-200`}
                     />
                   </div>
+                  <p className={`text-xs ${themeStyles.subtext} mt-1 ml-1`}>Select one or more files to upload</p>
                 </div>
               </div>
 
-              <Dialog.Footer>
+              <Dialog.Footer className="flex justify-end space-x-3 pt-2">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setIsAddProjectDialogOpen(false)}
-                  className={`${currentTheme === 'dark' 
+                  className={`px-4 py-2 rounded-xl transition-all duration-200 ${currentTheme === 'dark' 
                     ? 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700' 
                     : 'bg-white text-gray-900 border-gray-200 hover:bg-gray-100'}`}
                 >
@@ -407,8 +408,8 @@ export function ProjectSelector() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={isCreatingProject}
-                  className={`${themeStyles.buttonBg} ${themeStyles.buttonText} ${themeStyles.buttonHoverBg}`}
+                  disabled={isCreatingProject || !newProject.name.trim()}
+                  className={`px-4 py-2 rounded-xl transition-all duration-200 ${themeStyles.buttonBg} ${themeStyles.buttonText} ${themeStyles.buttonHoverBg} ${(!newProject.name.trim()) ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md'}`}
                 >
                   {isCreatingProject ? (
                     <>
@@ -426,22 +427,28 @@ export function ProjectSelector() {
 
         {/* Add Delete Confirmation Dialog */}
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <Dialog.Content className={`${themeStyles.cardBg} border ${currentTheme === 'dark' ? 'border-gray-700' : 'border-gray-200'} rounded-xl`}>
-            <Dialog.Header>
+          <Dialog.Content className={`${themeStyles.cardBg} border ${currentTheme === 'dark' ? 'border-gray-700' : 'border-gray-200'} rounded-2xl shadow-lg max-w-md mx-auto`}>
+            <Dialog.Header className="pb-2">
               <Dialog.Title className={`${themeStyles.text} text-xl font-semibold`}>
                 Delete Project
               </Dialog.Title>
-              <Dialog.Description className={themeStyles.subtext}>
-                Are you sure you want to delete "{projectToDelete?.name}"? This action cannot be undone.
+              <Dialog.Description className={`${themeStyles.subtext} text-sm`}>
+                Are you sure you want to delete <span className="font-medium">"{projectToDelete?.name}"</span>? This action cannot be undone.
               </Dialog.Description>
             </Dialog.Header>
 
-            <Dialog.Footer>
+            <div className={`my-4 p-4 rounded-xl ${currentTheme === 'dark' ? 'bg-red-900/20 text-red-200' : 'bg-red-50 text-red-600'}`}>
+              <p className="text-sm">
+                All project data and associated files will be permanently removed.
+              </p>
+            </div>
+
+            <Dialog.Footer className="flex justify-end space-x-3 pt-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsDeleteDialogOpen(false)}
-                className={`${currentTheme === 'dark' 
+                className={`px-4 py-2 rounded-xl transition-all duration-200 ${currentTheme === 'dark' 
                   ? 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700' 
                   : 'bg-white text-gray-900 border-gray-200 hover:bg-gray-100'}`}
               >
@@ -451,7 +458,7 @@ export function ProjectSelector() {
                 type="button"
                 onClick={confirmDeleteProject}
                 disabled={isDeletingProject}
-                className="bg-red-600 text-white hover:bg-red-700"
+                className="px-4 py-2 rounded-xl transition-all duration-200 bg-red-600 text-white hover:bg-red-700 hover:shadow-md"
               >
                 {isDeletingProject ? (
                   <>
@@ -468,15 +475,28 @@ export function ProjectSelector() {
 
         {/* Loading Overlay - Only show when creating a project */}
         {isCreatingProject && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className={`${themeStyles.cardBg} p-6 rounded-lg shadow-xl max-w-sm w-full mx-4`}>
-              <div className="flex flex-col items-center space-y-4">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                <p className={`text-center font-medium ${themeStyles.text}`}>
-                  Creating your project...
-                </p>
-                <p className={`text-center text-sm ${themeStyles.subtext}`}>
-                  This may take a moment
+          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className={`${themeStyles.cardBg} p-8 rounded-3xl shadow-xl max-w-sm w-full mx-4 border ${currentTheme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
+              <div className="flex flex-col items-center space-y-6">
+                <div className="p-4 bg-blue-500 bg-opacity-10 rounded-full">
+                  <Loader2 className="h-10 w-10 animate-spin text-blue-500" />
+                </div>
+                
+                <div className="text-center space-y-2">
+                  <p className={`font-semibold text-xl ${themeStyles.text}`}>
+                    Creating your project...
+                  </p>
+                  <p className={`text-sm ${themeStyles.subtext}`}>
+                    This may take a moment
+                  </p>
+                </div>
+                
+                <div className={`w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden mt-2`}>
+                  <div className={`h-full bg-blue-500 rounded-full animate-pulse`} style={{ width: '60%' }}></div>
+                </div>
+                
+                <p className={`text-xs ${themeStyles.subtext} italic`}>
+                  Your files are being processed and organized
                 </p>
               </div>
             </div>

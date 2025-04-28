@@ -8,7 +8,11 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
 import { ERROR_MESSAGES } from '../constants/errorMessages';
 import jsPDF from 'jspdf';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
+import { Chart as ChartJS, registerables } from 'chart.js';
 
+// Register the required Chart.js components and the datalabels plugin
+ChartJS.register(...registerables, ChartDataLabels);
 
 interface ChartRendererProps {
   dashboard: Dashboard;
@@ -501,6 +505,28 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
                             text: dashboard.X_axis_label
                           }
                         }
+                      },
+                      plugins: {
+                        ...chartOptions.plugins,
+                        datalabels: {
+                          color: isDarkMode ? '#ffffff' : '#1e293b',
+                          anchor: 'end' as const,
+                          align: 'top' as const,
+                          font: {
+                            weight: 'bold' as const,
+                            size: 11
+                          },
+                          formatter: (value) => {
+                            if (typeof value === 'number') {
+                              return value.toLocaleString(undefined, { 
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 2
+                              });
+                            }
+                            return value;
+                          },
+                          padding: 6
+                        }
                       }
                     }}
                   />
@@ -563,6 +589,25 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
                               size: 11
                             }
                           }
+                        },
+                        datalabels: {
+                          color: isDarkMode ? '#ffffff' : '#1e293b',
+                          anchor: 'end' as const,
+                          align: 'top' as const,
+                          offset: 4,
+                          font: {
+                            weight: 'bold' as const,
+                            size: 11
+                          },
+                          formatter: (value) => {
+                            if (typeof value === 'number') {
+                              return value.toLocaleString(undefined, { 
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 2
+                              });
+                            }
+                            return value;
+                          }
                         }
                       }
                     }}
@@ -600,6 +645,28 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
                               size: 11
                             }
                           }
+                        },
+                        datalabels: {
+                          color: '#ffffff',
+                          anchor: 'center' as const,
+                          align: 'center' as const,
+                          font: {
+                            weight: 'bold' as const,
+                            size: 12
+                          },
+                          formatter: (value, context) => {
+                            if (typeof value === 'number') {
+                              return value.toLocaleString(undefined, {
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 2
+                              });
+                            }
+                            return value;
+                          },
+                          offset: 0,
+                          borderWidth: 2,
+                          borderRadius: 4,
+                          borderColor: isDarkMode ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.75)'
                         }
                       }
                     }}
@@ -714,6 +781,66 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
                             usePointStyle: true,
                             pointStyle: 'circle'
                           }
+                        },
+                        datalabels: {
+                          color: isDarkMode ? '#ffffff' : '#1e293b',
+                          anchor: (context) => {
+                            return context.datasetIndex === 0 ? 'end' : 'end';
+                          },
+                          align: (context) => {
+                            // For the first dataset (primary values)
+                            if (context.datasetIndex === 0) {
+                              return 'top';
+                            }
+                            // For the second dataset (secondary values)
+                            return 'top';
+                          },
+                          offset: (context) => {
+                            // Offset primary values above the bar
+                            if (context.datasetIndex === 0) {
+                              return 6;
+                            }
+                            // Offset secondary values above the bar with more space
+                            return 6;
+                          },
+                          rotation: (context) => {
+                            // Rotate first dataset labels slightly
+                            if (context.datasetIndex === 0) {
+                              return 0;
+                            }
+                            return 0;
+                          },
+                          font: {
+                            weight: 'bold' as const,
+                            size: 10
+                          },
+                          formatter: (value) => {
+                            if (typeof value === 'number') {
+                              // Format large numbers using Indian system (crores and lakhs)
+                              if (value >= 10000000) {
+                                return (value / 10000000).toFixed(1) + 'Cr';
+                              } else if (value >= 100000) {
+                                return (value / 100000).toFixed(1) + 'L';
+                              } else if (value >= 1000) {
+                                return (value / 1000).toFixed(1) + 'K';
+                              }
+                              return value.toLocaleString(undefined, {
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0
+                              });
+                            }
+                            return value;
+                          },
+                          backgroundColor: (context) => {
+                            // Add background color to help readability
+                            return context.datasetIndex === 0 ? 
+                              'rgba(255, 255, 255, 0.7)' : 
+                              'rgba(255, 255, 255, 0.7)';
+                          },
+                          borderRadius: 3,
+                          padding: { top: 2, bottom: 2, left: 4, right: 4 },
+                          // Show all labels
+                          display: true
                         }
                       }
                     }}
@@ -804,6 +931,36 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
                               }));
                             }
                           }
+                        },
+                        datalabels: {
+                          color: (context) => {
+                            const datasetIndex = context.datasetIndex;
+                            // First dataset - blue/teal, Second dataset - red/pink
+                            return datasetIndex === 0 
+                              ? (isDarkMode ? 'rgb(94, 234, 212)' : 'rgb(13, 148, 136)')
+                              : (isDarkMode ? 'rgb(244, 63, 94)' : 'rgb(225, 29, 72)');
+                          },
+                          anchor: 'end' as const,
+                          align: 'top' as const,
+                          offset: 0,
+                          font: {
+                            weight: 'bold' as const,
+                            size: 11
+                          },
+                          formatter: (value) => {
+                            if (typeof value === 'number') {
+                              return value.toLocaleString(undefined, {
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 1
+                              });
+                            }
+                            return value;
+                          },
+                          padding: 6,
+                          // Show labels on every other point to avoid overcrowding
+                          display: (context) => {
+                            return context.dataIndex % 2 === 0;
+                          }
                         }
                       },
                       scales: {
@@ -863,6 +1020,29 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
                             ...chartOptions.scales.x.title,
                             text: dashboard.X_axis_label
                           }
+                        }
+                      },
+                      plugins: {
+                        ...chartOptions.plugins,
+                        datalabels: {
+                          color: isDarkMode ? '#ffffff' : '#1e293b',
+                          anchor: 'end' as const,
+                          align: 'top' as const,
+                          offset: 5,
+                          font: {
+                            weight: 'bold' as const,
+                            size: 10
+                          },
+                          formatter: (value) => {
+                            if (value && typeof value.y === 'number') {
+                              return `(${value.x}, ${value.y.toLocaleString(undefined, {
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 2
+                              })})`;
+                            }
+                            return '';
+                          },
+                          padding: 4
                         }
                       }
                     }}

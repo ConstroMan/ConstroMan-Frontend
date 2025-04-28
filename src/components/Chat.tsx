@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Button } from "./ui/Button.tsx"
 import { Send, User, Atom, ArrowLeft, ChevronDown, LayoutDashboard, X, Plus, Minus, ChevronLeft, ChevronRight, Sun, Moon, Download, Bookmark, Trash2, MoreVertical, ZoomIn, ZoomOut, Copy, BookmarkCheck } from 'lucide-react'
 import { motion, AnimatePresence} from 'framer-motion'
-import { saveProjectChart, getProjectCharts, sendMessage, SavedChart, deleteProjectChart, savePrompt, getSavedPrompts, SavedPrompt } from '../services/api'
+import { saveProjectChart, getProjectCharts, sendMessage, sendStreamingMessage, SavedChart, deleteProjectChart, savePrompt, getSavedPrompts, SavedPrompt } from '../services/api'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -25,11 +25,13 @@ import 'react-resizable/css/styles.css';
 import { useTheme } from '../contexts/ThemeContext';
 import './gridLayoutTheme.css'; // Add this import at the top
 import DashboardView from './DashboardView';
-import { ChartRenderer } from './ChartRenderer.tsx'
+import { ChartRenderer } from '../components/ChartRenderer'
 import { NavBar } from './NavBar';
 import { Menu, Transition } from '@headlessui/react'
 import SavedPromptsDialog from './SavedPromptsDialog'
-import { ScenarioSection } from './ScenarioSection';
+import { ScenarioSection } from './ScenarioSection'
+import Logo from './Logo';
+import { useToast } from '../contexts/ToastContext';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -82,6 +84,7 @@ type Message = {
   isLoading?: boolean;
   dashboards?: Dashboard[];
   scenarios?: Scenario[]; // Add scenarios field
+  isWaitingForDashboard?: boolean; // Add this flag
 }
 
 type DashboardItem = {
@@ -106,22 +109,74 @@ const formatMessage = (content: any) => {
   let dashboards: Dashboard[] = [];
   let scenarios: Scenario[] = [];
 
+  // Handle null or undefined content
+  if (!content) {
+    return {
+      textContent: <div className="space-y-2 w-full [caret-color:transparent]"></div>,
+      dashboards: [],
+      scenarios: []
+    };
+  }
+
   // If it's the initial message or any non-API response, use it directly
   if (typeof content === 'string' && !content.includes('response":')) {
     parsedContent = content;
   } else {
     try {
       // Parse the nested response structure
-      const wrapper = JSON.parse(typeof content === 'object' ? JSON.stringify(content) : content);
-      const jsonData = JSON.parse(wrapper.response);
+      let jsonData;
+      
+      if (typeof content === 'object') {
+        // If content is already an object
+        if (content.Dashboard) {
+          // Direct dashboard access without wrapper
+          jsonData = content;
+          parsedContent = content.Answer || ''; // Use empty string if Answer is missing
+        } else if (content.response) {
+          // Wrapped in response field, need to parse
+          try {
+            jsonData = JSON.parse(content.response);
+            parsedContent = jsonData.Answer || '';
+          } catch (parseError) {
+            // If not valid JSON, use the response field directly
+            parsedContent = content.response || '';
+            jsonData = { Answer: parsedContent };
+          }
+        } else {
+          // Unknown object structure
+          parsedContent = JSON.stringify(content);
+          jsonData = { Answer: parsedContent };
+        }
+      } else {
+        // Try to parse as JSON string
+        try {
+          const wrapper = JSON.parse(content);
+          if (wrapper.response) {
+            try {
+              jsonData = JSON.parse(wrapper.response);
+              parsedContent = jsonData.Answer || '';
+            } catch (parseError) {
+              // If nested response is not valid JSON
+              parsedContent = wrapper.response || '';
+              jsonData = { Answer: parsedContent };
+            }
+          } else {
+            // Direct JSON without wrapper
+            jsonData = wrapper;
+            parsedContent = wrapper.Answer || '';
+          }
+        } catch (parseError) {
+          // If content is not a valid JSON string
+          parsedContent = String(content);
+          jsonData = { Answer: parsedContent };
+        }
+      }
 
-      // Extract the Answer and Dashboards
-      parsedContent = jsonData.Answer;
-
-      if (jsonData.Dashboard) {
+      // Extract Dashboards if they exist
+      if (jsonData.Dashboard && Array.isArray(jsonData.Dashboard)) {
         dashboards = jsonData.Dashboard.map(dashboardData => ({
-          Name: dashboardData.Name,
-          Type: dashboardData.Type as Dashboard['Type'],
+          Name: dashboardData.Name || 'Unnamed Chart',
+          Type: dashboardData.Type as Dashboard['Type'] || 'BarChart',
           X_axis_label: dashboardData.X_axis_label || '',
           Y_axis_label: dashboardData.Y_axis_label || '',
           X_axis_data: dashboardData.X_axis_data || [],
@@ -138,16 +193,16 @@ const formatMessage = (content: any) => {
       }
 
       // Handle scenarios from response
-      if (jsonData.Scenarios) {
+      if (jsonData.Scenarios && Array.isArray(jsonData.Scenarios)) {
         scenarios = jsonData.Scenarios.map(scenario => ({
-          id: scenario.id,
-          description: scenario.description,
-          probability: scenario.probability,
-          impact: scenario.impact,
+          id: scenario.id || String(Math.random()),
+          description: scenario.description || 'Unnamed Scenario',
+          probability: scenario.probability || 0,
+          impact: scenario.impact || 'Medium',
           insights: scenario.insights || [],
-          dashboards: scenario.Dashboard.map(dashboardData => ({
-            Name: dashboardData.Name,
-            Type: dashboardData.Type as Dashboard['Type'],
+          dashboards: Array.isArray(scenario.Dashboard) ? scenario.Dashboard.map(dashboardData => ({
+            Name: dashboardData.Name || 'Unnamed Chart',
+            Type: dashboardData.Type as Dashboard['Type'] || 'BarChart',
             X_axis_label: dashboardData.X_axis_label || '',
             Y_axis_label: dashboardData.Y_axis_label || '',
             X_axis_data: dashboardData.X_axis_data || [],
@@ -160,7 +215,7 @@ const formatMessage = (content: any) => {
             Forecasted_Y_axis_data: dashboardData.Forecasted_Y_axis_data || [],
             Y_axis_data_secondary: dashboardData.Y_axis_data_secondary || [],
             is_prediction: dashboardData.is_prediction || false
-          }))
+          })) : []
         }));
       }
     } catch (e) {
@@ -169,52 +224,80 @@ const formatMessage = (content: any) => {
     }
   }
 
+  // Ensure parsedContent is always a string
+  parsedContent = String(parsedContent);
+
   return {
     textContent: (
       <div className="space-y-2 w-full [caret-color:transparent]">
-        {parsedContent.split('\n').map((line, index) => {
-          if (!line.trim()) {
-            return <div key={index} className="h-2" />;
-          }
+        {parsedContent.split('\n').map((rawLine, index) => {
+          const line = rawLine.replace(/\t/g, '    '); // replace tabs with spaces
+          const trimmed = line.trim();
+          // Empty line
+          if (!trimmed) return <div key={index} className="h-2" />;
 
-          // Handle bold text enclosed in **
-          if (line.includes('**')) {
-            const parts = line.split('**');
+          // Header: **Header Text**
+          if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
+            const headerText = trimmed.slice(2, -2).trim();
             return (
-              <p key={index} className="min-w-0">
-                {parts.map((part, partIndex) => {
-                  // Even indices are normal text, odd indices are bold
-                  return partIndex % 2 === 0 ? (
-                    <span key={partIndex}>{part}</span>
-                  ) : (
-                    <span key={partIndex} className="font-bold">{part}</span>
-                  );
-                })}
+              <p key={index} className="font-bold text-lg mt-4 mb-1">
+                {headerText}
               </p>
             );
           }
 
-          // Handle normal text enclosed in ""
-          if (line.includes('"')) {
-            const parts = line.split('"');
+          // Bold inline
+          if (trimmed.includes('**')) {
+            const parts = trimmed.split('**');
             return (
               <p key={index} className="min-w-0">
-                {parts.map((part, partIndex) => {
-                  // Even indices are outside quotes, odd indices are inside quotes
-                  return partIndex % 2 === 0 ? (
-                    <span key={partIndex}>{part}</span>
-                  ) : (
-                    <span key={partIndex} className="font-normal">{part}</span>
-                  );
-                })}
+                {parts.map((part, pi) =>
+                  pi % 2 === 0 ? <span key={pi}>{part}</span> : <span key={pi} className="font-bold">{part}</span>
+                )}
               </p>
             );
           }
 
-          // Default case for lines without formatting
+          // Quoted text
+          if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+            return (
+              <p key={index} className="italic bg-gray-100 dark:bg-gray-800 p-2 rounded-md">
+                {trimmed.slice(1, -1)}
+              </p>
+            );
+          }
+
+          // Numbered list
+          if (/^\d+\./.test(trimmed)) {
+            return (
+              <p key={index} className="ml-4 list-decimal list-inside">
+                {trimmed}
+              </p>
+            );
+          }
+
+          // Bullet list (single dash)
+          if (/^-\s+/.test(trimmed)) {
+            return (
+              <p key={index} className="ml-4 list-disc list-inside">
+                {trimmed.slice(2).trim()}
+              </p>
+            );
+          }
+
+          // Sub-bullet (double dash)
+          if (/^--\s+/.test(trimmed)) {
+            return (
+              <p key={index} className="ml-8 list-disc list-inside">
+                {trimmed.slice(3).trim()}
+              </p>
+            );
+          }
+
+          // Default paragraph
           return (
             <p key={index} className="min-w-0">
-              {line.trim()}
+              {trimmed}
             </p>
           );
         })}
@@ -788,25 +871,93 @@ const renderChart = (dashboard: Dashboard, hideDownload: boolean = false, dimens
   );
 };
 
-const ThreeDotLoader = () => (
-  <div className="flex items-center justify-center w-12">
-    {[0, 1, 2].map((dot) => (
-      <motion.div
-        key={dot}
-        className="w-1 h-1 bg-gray-400 rounded-full mx-0.5"
-        animate={{
-          y: ["0%", "-30%", "0%"],
-        }}
-        transition={{
-          duration: 0.6,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: dot * 0.2,
-        }}
-      />
-    ))}
-  </div>
-);
+// Replace the LoadingMessage component with the original "ConstroMan is thinking" animation
+const LoadingMessage = () => {
+  const text = "ConstroMan is thinking...";
+  const { currentTheme } = useTheme();
+  
+  return (
+    <div className="flex flex-col items-start gap-3 w-full">
+      <div className="text-sm font-medium flex whitespace-pre">
+        {text.split("").map((char, index) => (
+          <motion.span
+            key={index}
+            className={`${
+              currentTheme === 'light' ? 'text-teal-600' : 'text-teal-400'
+            } inline-block`}
+            animate={{ 
+              y: [0, -5, 0],
+              transition: {
+                repeat: Infinity,
+                duration: 1.2,
+                delay: index * 0.06,
+                ease: "easeInOut"
+              }
+            }}
+          >
+            {char === " " ? "\u00A0" : char}
+          </motion.span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// First add a simple dashboard loading component
+const DashboardLoadingIndicator = () => {
+  const { currentTheme } = useTheme();
+  
+  return (
+    <div className={`text-center py-2 ${
+      currentTheme === 'light' ? 'text-gray-600' : 'text-gray-400'
+    } text-sm`}>
+      Creating dashboard...
+    </div>
+  );
+};
+
+// Add a Welcome component to replace the first message
+const WelcomeSection = ({ onSendMessage }) => {
+  const { currentTheme } = useTheme();
+  const isDark = currentTheme === 'dark';
+  
+  const suggestedPrompts = [
+    "Compare cost performance across different projects",
+    "Analyze material procurement trends",
+    "Show a monthly breakdown of construction delays",
+    "Project completion time estimates for ongoing projects" 
+  ];
+
+  return (
+    <div className={`w-full max-w-4xl mx-auto ${isDark ? 'text-gray-100' : 'text-gray-800'}`}>
+      <div className="text-center mb-12">
+        <div className="mx-auto w-28 h-28 mb-6">
+          <Logo size="lg" />
+        </div>
+        <h1 className="text-3xl font-bold mb-3">Welcome to ConstroMan</h1>
+        <p className="text-lg opacity-80 max-w-md mx-auto">
+          Your AI assistant for data analysis and visualization in construction and real estate
+        </p>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        {suggestedPrompts.map((prompt, index) => (
+          <button
+            key={index}
+            onClick={() => onSendMessage(prompt)}
+            className={`text-left p-4 rounded-xl border transition-all duration-200 hover:shadow-md ${
+              isDark 
+                ? 'bg-gray-800 border-gray-700 hover:bg-gray-750' 
+                : 'bg-white border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            <p className="text-sm">{prompt}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 // Initialize a counter for unique message IDs
 let messageIdCounter = 2; // Starting from 2 since the initial message has id '1'
@@ -963,11 +1114,24 @@ function downloadDashboard() {
   // Example: You might want to convert the dashboard data to a file format and trigger a download
 }
 
+// Near the top of your file, update the shimmer styles
+const shimmerStyles = `
+  @keyframes shimmer {
+    0% {
+      background-position: -100% center;
+    }
+    100% {
+      background-position: 200% center;
+    }
+  }
+`;
+
 export default function Chat() {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const { showToast } = useToast();
 
-  const [selectedDashboardIndex, setSelectedDashboardIndex] = useState(0);
+  const [selectedDashboardIndices, setSelectedDashboardIndices] = useState<{[messageId: string]: number}>({});
   const [showDashboardView, setShowDashboardView] = useState(false);
   const [availableDashboards, setAvailableDashboards] = useState<DashboardItem[]>([]);
 
@@ -996,13 +1160,24 @@ export default function Chat() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (inputMessage.trim()) {
+  const [isFirstVisit, setIsFirstVisit] = useState(true);
+
+  const handleSendMessage = async (e: React.FormEvent | string) => {
+    if (e && typeof e !== 'string') e.preventDefault();
+    
+    const messageText = typeof e === 'string' ? e : inputMessage;
+    
+    if (messageText.trim() && !isAIResponding) {
+      // Check for duplicate messages - prevent sending the same query twice in a row
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage && lastMessage.role === 'user' && lastMessage.content === messageText) {
+        return; // Don't send duplicate message
+      }
+      
       const newUserMessage: Message = {
         id: (messageIdCounter++).toString(),
         role: 'user',
-        content: inputMessage,
+        content: messageText,
         timestamp: new Date()
       };
       
@@ -1010,53 +1185,143 @@ export default function Chat() {
       const updatedMessages = [...messages, newUserMessage];
       setMessages(updatedMessages);
       setInputMessage('');
+      setIsFirstVisit(false);
 
-      // Add loading message
-      const loadingMessage: Message = {
-        id: (messageIdCounter++).toString(),
+      // Add an empty AI message with loading state
+      const aiMessageId = (messageIdCounter++).toString();
+      const newAiMessage: Message = {
+        id: aiMessageId,
         role: 'ai',
         content: '',
         timestamp: new Date(),
-        isLoading: true
+        isLoading: true,
+        isWaitingForDashboard: false
       };
-      setMessages([...updatedMessages, loadingMessage]);
+      
+      setMessages([...updatedMessages, newAiMessage]);
+      
+      // Set loading states
       setIsAIResponding(true);
+      
+      let textStreamComplete = false;
+      let dashboardsReceived = false;
 
       try {
-        // Send message without chat history
-        const response = await sendMessage(inputMessage, projectId || 'default');
-
-        // Update messages with AI response
-        const finalMessages = updatedMessages.concat({
-          id: loadingMessage.id,
-          role: 'ai',
-          content: response,
-          timestamp: new Date()
+        // Start streaming response for immediate feedback
+        const streamPromise = sendStreamingMessage(
+          messageText, 
+          projectId || 'default',
+          (textChunk) => {
+            // Update the AI message as chunks arrive
+            setMessages((prevMessages) => {
+              return prevMessages.map((msg) => {
+                if (msg.id === aiMessageId) {
+                  return {
+                    ...msg,
+                    content: textChunk,
+                    isLoading: false,
+                  };
+                }
+                return msg;
+              });
+            });
+          }
+        ).finally(() => {
+          textStreamComplete = true;
+          // If text is done but dashboards aren't, show dashboard loading
+          setMessages((prevMessages) =>
+            prevMessages.map((msg) => {
+              if (msg.id === aiMessageId && !dashboardsReceived) {
+                return { ...msg, isWaitingForDashboard: true };
+              }
+              return msg;
+            })
+          );
         });
-        setMessages(finalMessages);
-
-        // Handle dashboards...
-        const formattedResponse = formatMessage(response);
-        if (formattedResponse.dashboards && formattedResponse.dashboards.length > 0) {
-          const newDashboardItems = formattedResponse.dashboards.map(dashboard => ({
-            dashboardData: dashboard,
-            query: inputMessage,
-            selected: false
-          }));
-          setAvailableDashboards(prev => [...prev, ...newDashboardItems]);
+        
+        // In parallel, fetch structured data (dashboards, scenarios)
+        const structuredPromise = sendMessage(messageText, projectId || 'default')
+          .catch(error => {
+            console.warn('Error fetching structured data:', error);
+            // Return null instead of throwing to allow stream to continue
+            return null;
+          }).finally(() => {
+            dashboardsReceived = true;
+            // Ensure the waiting flag is turned off when structured promise finishes
+            setMessages((prevMessages) =>
+              prevMessages.map((msg) => {
+                if (msg.id === aiMessageId) {
+                  return { ...msg, isWaitingForDashboard: false };
+                }
+                return msg;
+              })
+            );
+          });
+        
+        // Wait for both to complete
+        const [streamResponse, structuredResponse] = await Promise.all([
+          streamPromise.catch(error => {
+            console.error('Stream error:', error);
+            textStreamComplete = true;
+            // Return the error message
+            return `I'm sorry, there was an error with the streaming response: ${error.message || 'Unknown error'}`;
+          }),
+          structuredPromise
+        ]);
+        
+        // Parse structured data for dashboards, scenarios
+        if (structuredResponse) {
+          try {
+            // Parse dashboard data but don't modify the streamed text content
+            const dashboardData = formatMessage(structuredResponse);
+            
+            // Update the AI message with structured data only, preserving the streamed text
+            setMessages((prevMessages) => {
+              return prevMessages.map((msg) => {
+                if (msg.id === aiMessageId) {
+                  return {
+                    ...msg,
+                    // Don't replace the content, just add dashboards and scenarios
+                    dashboards: dashboardData.dashboards || [],
+                    scenarios: dashboardData.scenarios || [],
+                    isLoading: false,
+                    isWaitingForDashboard: false
+                  };
+                }
+                return msg;
+              });
+            });
+            
+            // Add dashboards if available
+            if (dashboardData.dashboards && dashboardData.dashboards.length > 0) {
+              const newDashboardItems = dashboardData.dashboards.map(dashboard => ({
+                dashboardData: dashboard,
+                query: messageText,
+                selected: false
+              }));
+              setAvailableDashboards(prev => [...prev, ...newDashboardItems]);
+            }
+          } catch (formatError) {
+            console.error('Error formatting structured response:', formatError);
+          }
         }
       } catch (error) {
-        console.error('Error sending message:', error);
-        setMessages(prevMessages =>
-          prevMessages.map(msg =>
-            msg.id === loadingMessage.id
-              ? {
+        console.error('Error in message handling:', error);
+        
+        // Update with error message
+        setMessages(prevMessages => 
+          prevMessages.map((msg) => {
+            if (msg.id === aiMessageId) {
+              return {
                 ...msg,
-                content: error.response?.data?.message || "I'm sorry, there was an error processing your request. Please try again.",
-                isLoading: false
-              }
-              : msg
-          )
+                content: error.response?.data?.message || 
+                         "I'm sorry, there was an error processing your request. Please try again.",
+                isLoading: false,
+                isWaitingForDashboard: false
+              };
+            }
+            return msg;
+          })
         );
       } finally {
         setIsAIResponding(false);
@@ -1085,11 +1350,7 @@ export default function Chat() {
   const handleSavePrompt = async (content: string) => {
     // Check if prompt is already saved
     if (savedPrompts.has(content)) {
-      toast({
-        title: "Prompt already saved",
-        description: "This prompt has already been saved to your collection.",
-        variant: "default"
-      });
+      showToast("Prompt already saved", "info");
       return;
     }
 
@@ -1099,8 +1360,10 @@ export default function Chat() {
         project_id: Number(projectId)
       });
       setSavedPrompts(prev => new Set(prev).add(content));
+      showToast("Prompt saved successfully", "success");
     } catch (error) {
       console.error('Error saving prompt:', error);
+      showToast("Failed to save prompt", "error");
     }
   }
 
@@ -1114,6 +1377,17 @@ export default function Chat() {
     setInputMessage(prompt.content)
     // Optionally, scroll to input or trigger sending automatically
   }
+
+  useEffect(() => {
+    // Add shimmer animation styles to document head
+    const styleTag = document.createElement('style');
+    styleTag.innerHTML = shimmerStyles;
+    document.head.appendChild(styleTag);
+    
+    return () => {
+      document.head.removeChild(styleTag);
+    };
+  }, []);
 
   return (
     <AnimatePresence mode="wait">
@@ -1265,129 +1539,164 @@ export default function Chat() {
         </div>
 
         <div className="flex-1 flex flex-col relative [&_*]:caret-transparent">
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-4 px-6">
             <div className="max-w-4xl mx-auto space-y-6 pt-6">
-              {messages.map((message) => {
-                const formattedMessage = formatMessage(message.content);
-
-                return (
-                  <motion.div
-                    key={message.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, type: "tween" }}
-                    className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start w-full'}`}
-                  >
-                    {/* Message Bubble */}
-                    <div className="flex items-start gap-3 max-w-[95%]">
-                      {message.role === 'ai' && (
-                        <div className={`w-8 h-8 rounded-full bg-[${themeStyles.iconBg}] flex items-center justify-center flex-shrink-0 mt-1`}>
-                          <Atom className="w-5 h-5 text-white" />
-                        </div>
-                      )}
-                      <div
-                        className={`rounded-2xl shadow-lg ${
-                          message.role === 'user'
-                            ? `bg-[${themeStyles.messageUserBg}] ${themeStyles.messageUserText}`
-                            : `bg-[${themeStyles.messageAiBg}] ${themeStyles.messageAiText}`
-                        } p-4 flex-1`}
+              {/* Welcome section shown on first visit instead of first message */}
+              {isFirstVisit ? (
+                <WelcomeSection onSendMessage={handleSendMessage} />
+              ) : (
+                <>
+                  {messages.map((message, index) => {
+                    // Skip the first welcome message if needed
+                    if (index === 0 && message.role === 'ai') return null;
+                    
+                    return (
+                      <motion.div
+                        key={message.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ 
+                          type: "spring", 
+                          stiffness: 500, 
+                          damping: 30, 
+                          mass: 1
+                        }}
+                        className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start w-full'}`}
                       >
-                        {message.isLoading ? (
-                          <div className="flex justify-center">
-                            <div className="flex space-x-1.5">
-                              <div className="w-1.5 h-1.5 rounded-full bg-gray-400/60 animate-pulse" 
-                                   style={{animationDelay: "0s"}} />
-                              <div className="w-1.5 h-1.5 rounded-full bg-gray-400/60 animate-pulse" 
-                                   style={{animationDelay: "0.2s"}} />
-                              <div className="w-1.5 h-1.5 rounded-full bg-gray-400/60 animate-pulse" 
-                                   style={{animationDelay: "0.4s"}} />
+                        {/* Message Bubble - Text Only */}
+                        <div className="flex items-start gap-3 max-w-[95%]">
+                          {message.role === 'ai' && (
+                            <div className={`w-14 h-14 rounded-full ${currentTheme === 'light' ? 'bg-white/90' : 'bg-gray-800/90'} border-2 border-[${themeStyles.iconBg}] flex items-center justify-center flex-shrink-0 mt-1 p-1 overflow-hidden`}>
+                              <Logo size="sm" className="drop-shadow-md" />
                             </div>
-                          </div>
-                        ) : (
-                          <>{formattedMessage.textContent}</>
-                        )}
-                      </div>
-                      {message.role === 'user' && (
-                        <div className={`w-8 h-8 rounded-full bg-[${themeStyles.iconBg}] flex items-center justify-center flex-shrink-0 mt-1`}>
-                          <User className="w-5 h-5 text-white" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Action Icons - Below Message */}
-                    {message.role === 'user' && !message.isLoading && (
-                      <div className="flex gap-2 mt-1 mr-12">
-                        <button
-                          onClick={() => handleCopyPrompt(message.content)}
-                          className="p-1 hover:bg-gray-700/10 rounded-full transition-colors"
-                          title="Copy message"
-                        >
-                          <Copy className={`w-4 h-4 ${
-                            currentTheme === 'light' ? 'black' : 'text-gray-400'
-                          }`} />
-                        </button>
-                        <button
-                          onClick={() => handleSavePrompt(message.content)}
-                          className="p-1 hover:bg-gray-700/10 rounded-full transition-colors"
-                          title={savedPrompts.has(message.content) ? "Already saved" : "Save prompt"}
-                        >
-                          {savedPrompts.has(message.content) ? (
-                            <BookmarkCheck className={`w-4 h-4 ${
-                              currentTheme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                            }`} />
-                          ) : (
-                            <Bookmark className={`w-4 h-4 ${
-                              currentTheme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                            }`} />
                           )}
-                        </button>
-                      </div>
-                    )}
+                          <div
+                            className={`rounded-2xl shadow-lg ${
+                              message.role === 'user' 
+                                ? `bg-[${themeStyles.messageUserBg}] ${themeStyles.messageUserText}`
+                                : `bg-[${themeStyles.messageAiBg}] ${themeStyles.messageAiText}`
+                            } p-4 flex-1`}
+                          >
+                            {message.isLoading ? (
+                              <LoadingMessage />
+                            ) : (
+                              <div className="whitespace-pre-wrap">
+                                {formatMessage(message.content).textContent}
+                              </div>
+                            )}
+                          </div>
+                          {message.role === 'user' && (
+                            <div className={`w-9 h-9 rounded-full bg-[${themeStyles.iconBg}] flex items-center justify-center flex-shrink-0 mt-1`}>
+                              <User className="w-8 h-8 text-white" />
+                            </div>
+                          )}
+                        </div>
 
-                    {formattedMessage.dashboards && formattedMessage.dashboards.length > 0 && (
-                      <div className="mt-10 w-full">
-                        <div className="relative w-full flex flex-col">
-                          {/* Header section with right-aligned dropdown */}
-                          <div className="w-full flex justify-end mb-2">
-                            <div className="relative inline-block">
-                              <select
-                                value={selectedDashboardIndex}
-                                onChange={(e) => setSelectedDashboardIndex(Number(e.target.value))}
-                                className="rounded-full p-2 inline-block appearance-none text-center bg-white border border-gray-300 shadow-lg p-2 pr-6" // Reduced padding-right
-                                style={{ minWidth: 'max-content', width: 'auto' }}
-                              >
-                                {formattedMessage.dashboards.map((dashboard, index) => (
-                                  <option key={index} value={index}>
-                                    {dashboard.Name}
-                                  </option>
-                                ))}
-                              </select>
-                              {/* ChevronDown Icon */}
-                              <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none w-4" />
+                        {/* Action Icons - Below Message */}
+                        {message.role === 'user' && (
+                          <div className="flex gap-2 mt-1 mr-16">
+                            <button
+                              onClick={() => handleCopyPrompt(message.content)}
+                              className="p-1 hover:bg-gray-700/10 rounded-full transition-colors"
+                              title="Copy message"
+                            >
+                              <Copy className={`w-4 h-4 ${
+                                currentTheme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                              }`} />
+                            </button>
+                            <button
+                              onClick={() => handleSavePrompt(message.content)}
+                              className="p-1 hover:bg-gray-700/10 rounded-full transition-colors"
+                              title={savedPrompts.has(message.content) ? "Already saved" : "Save prompt"}
+                            >
+                              {savedPrompts.has(message.content) ? (
+                                <BookmarkCheck className={`w-4 h-4 ${
+                                  currentTheme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                                }`} />
+                              ) : (
+                                <Bookmark className={`w-4 h-4 ${
+                                  currentTheme === 'light' ? 'text-gray-600' : 'text-gray-400'
+                                }`} />
+                              )}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Dashboard container outside the message bubble - wider and centered */}
+                        {message.dashboards && message.dashboards.length > 0 && message.role === 'ai' && (
+                          <div className="mt-8 mb-8 w-full flex justify-center">
+                            <div className="w-[90%] bg-white dark:bg-gray-900 rounded-xl shadow-md p-4 border border-gray-200 dark:border-gray-700">
+                              <div className="relative w-full flex flex-col">
+                                {/* Header section with right-aligned dropdown */}
+                                <div className="w-full flex justify-between items-center mb-4">
+                                  <h3 className="text-base font-medium text-gray-700 dark:text-gray-200">
+                                    {message.dashboards[selectedDashboardIndices[message.id] || 0].Name}
+                                  </h3>
+                                  <div className="relative inline-block w-64">
+                                    <select
+                                      value={selectedDashboardIndices[message.id] || 0}
+                                      onChange={(e) => {
+                                        const index = Number(e.target.value);
+                                        setSelectedDashboardIndices(prev => ({
+                                          ...prev,
+                                          [message.id]: index
+                                        }));
+                                      }}
+                                      className={`rounded-full p-1.5 pl-5 pr-10 text-sm appearance-none 
+                                      ${currentTheme === 'light' 
+                                        ? 'bg-white border-gray-300 text-gray-800' 
+                                        : 'bg-gray-800 border-gray-600 text-gray-200'} 
+                                      border shadow-sm w-full`}
+                                    >
+                                      {message.dashboards.map((dashboard, idx) => (
+                                        <option key={idx} value={idx}>
+                                          {dashboard.Name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none w-4 h-4 text-gray-500" />
+                                  </div>
+                                </div>
+
+                                {/* Chart section */}
+                                <div className="w-full">
+                                  <ChartRenderer 
+                                    dashboard={message.dashboards[selectedDashboardIndices[message.id] || 0]}
+                                    hideDownload={false}
+                                  />
+                                </div>
+                              </div>
                             </div>
                           </div>
+                        )}
 
-                          {/* Chart section */}
-                          <div className="w-full">
-                            <ChartRenderer 
-                              dashboard={formattedMessage.dashboards[selectedDashboardIndex]}
-                              hideDownload={false}
-                            />
+                        {/* Scenario container outside the message bubble - wider and centered */}
+                        {message.scenarios && message.scenarios.length > 0 && message.role === 'ai' && (
+                          <div className="mt-8 mb-8 w-full flex justify-center">
+                            <div className="w-[90%]">
+                              <ScenarioSection scenarios={message.scenarios} theme={currentTheme} />
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Add scenarios section if present */}
-                    {message.role === 'ai' && formattedMessage.scenarios && formattedMessage.scenarios.length > 0 && (
-                      <ScenarioSection scenarios={formattedMessage.scenarios} theme={currentTheme} />
-                    )}
-                  </motion.div>
-                );
-              })}
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </>
+              )}
               <div ref={messagesEndRef} />
+
+              {/* Show dashboard loading indicator below messages if any message is waiting */}
+              {messages.some(msg => msg.isWaitingForDashboard) && (
+                <div className="flex justify-center mt-4">
+                  <div className={`text-lg font-medium ${currentTheme === 'light' ? 'text-gray-700' : 'text-gray-300'}`}>
+                    Creating dashboard...
+                  </div>
+                </div>
+              )}
             </div>
           </div>
+          
+          {/* Input Area with disabled state while loading */}
           <div className="p-4 pb-7 flex justify-center">
             <form 
               onSubmit={handleSendMessage} 
@@ -1406,35 +1715,43 @@ export default function Chat() {
                   e.target.style.height = `${e.target.scrollHeight}px`;
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
+                  if (e.key === 'Enter' && !e.shiftKey && !isAIResponding) {
                     e.preventDefault();
                     handleSendMessage(e);
                   }
                 }}
+                disabled={isAIResponding}
                 className={`flex-1 border-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full bg-transparent resize-none overflow-hidden min-h-[36px] max-h-[150px] py-2 px-4 outline-none ${
+                  isAIResponding ? 'opacity-50 cursor-not-allowed' : ''
+                } ${
                   currentTheme === 'light' 
                     ? 'text-gray-800 placeholder-gray-500' 
                     : 'text-gray-200 placeholder-gray-400'
                 }`}
                 rows={1}
-                style={{ caretColor: 'black' }}
+                style={{ caretColor: currentTheme === 'light' ? 'black' : 'white' }}
               />
               <Button
                 type="submit"
-                className={`rounded-full ${
+                disabled={isAIResponding}
+                className={`rounded-full transition-colors duration-200 w-10 h-10 flex items-center justify-center p-0.5 ${
+                  isAIResponding 
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : ''
+                } ${
                   currentTheme === 'light'
-                    ? 'bg-[#8B7355] hover:bg-[#7A6548]'
-                    : 'bg-[#404040] hover:bg-[#505050]'
-                } transition-colors duration-200 w-9 h-9 flex items-center justify-center p-0.5`}
+                    ? 'bg-teal-500 hover:bg-teal-600'
+                    : 'bg-teal-600 hover:bg-teal-700'
+                }`}
                 size="icon"
               >
-                <Send className="h-5 w-5 text-gray-200" />
+                <Send className="h-5 w-5 text-white" />
               </Button>
             </form>
           </div>
         </div>
 
-        {/* Update the DashboardView rendering */}
+        {/* Dashboard view, NavBar, and SavedPromptsDialog (unchanged) */}
         <AnimatePresence>
           {showDashboardView && (
             <DashboardView
@@ -1452,7 +1769,6 @@ export default function Chat() {
 
         <NavBar />
 
-        {/* Include the Saved Prompts Dialog */}
         <SavedPromptsDialog
           isOpen={isSavedPromptsOpen}
           onClose={() => setIsSavedPromptsOpen(false)}
@@ -1463,9 +1779,5 @@ export default function Chat() {
       </motion.div>
     </AnimatePresence>
   );
-}
-
-function toast(arg0: { title: string; description: string; variant: string }) {
-  throw new Error('Function not implemented.')
 }
 

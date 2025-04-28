@@ -1,6 +1,4 @@
 import axios from 'axios'
-import { useNavigate } from 'react-router-dom';
-import { useToast } from '../contexts/ToastContext';
 import { ERROR_MESSAGES } from '../constants/errorMessages';
 import { Permission, Role, TeamMember } from '../types/roles';
 
@@ -164,6 +162,57 @@ export const sendMessage = async (query: string, project: string) => {
     return response.data
   } catch (error) {
     throw error
+  }
+}
+
+// New function for streaming chat responses
+export const sendStreamingMessage = async (query: string, project: string, onChunkReceived: (chunk: string) => void) => {
+  try {
+    // Create a fetch request to the streaming endpoint
+    const response = await fetch(`${API_URL}/api/chat/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({
+        query,
+        project
+      }),
+      credentials: 'include'
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to get streaming response');
+    }
+    
+    if (!response.body) {
+      throw new Error('Response body is null');
+    }
+    
+    // Create a reader from the response body stream
+    const reader = response.body.getReader();
+    let accumulatedText = '';
+    
+    // Process the stream
+    while (true) {
+      const { value, done } = await reader.read();
+      
+      if (done) break;
+      
+      // Decode the chunk and add it to the accumulated text
+      const chunk = new TextDecoder().decode(value);
+      accumulatedText += chunk;
+      
+      // Call the callback with the accumulated text
+      onChunkReceived(accumulatedText);
+    }
+    
+    return accumulatedText;
+  } catch (error) {
+    console.error('Error in streaming chat:', error);
+    throw error;
   }
 }
 
@@ -485,15 +534,19 @@ interface ChartSuggestionsResponse {
 // Add this interface before the other interfaces
 export interface Dashboard {
   Name: string;
-  Type: 'LineChart' | 'BarChart' | 'PieChart' | 'DonutChart' | 'ScatterPlot' | 'Histogram' | 'Table' | 'DoubleBarChart' | 'DualColorLineChart';
+  Type: 'LineChart' | 'BarChart' | 'PieChart' | 'DonutChart' | 'ScatterPlot' | 'Histogram' | 'Table' | 'DoubleBarChart' | 'DualColorLineChart' | 'DualLineChart';
   X_axis_label: string;
   Y_axis_label: string;
+  Y_axis_label_secondary?: string;
   X_axis_data: string[] | number[];
   Y_axis_data: string[] | number[];
   labels: string[];
   Values: number[];
   Column_headers?: string[];
   Row_data?: string[][];
+  Forecasted_X_axis_data?: string[];
+  Forecasted_Y_axis_data?: number[];
+  Y_axis_data_secondary?: number[];
 }
 
 // Interface for saved chart
@@ -1241,5 +1294,62 @@ export const checkBackendHealth = async () => {
     return true;
   } catch (error) {
     return false;
+  }
+};
+
+export const getProjectById = async (projectId: number) => {
+  try {
+    const response = await api.get(`/api/projects/${projectId}`);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching project by ID:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    return null;
+  }
+};
+
+export const validateProjectAccess = async (projectId: number): Promise<boolean> => {
+  try {
+    const response = await api.get(`/api/projects/${projectId}/access/validate`);
+    return response.data.hasAccess === true;
+  } catch (error: any) {
+    if (error.response?.status === 403) {
+      return false; // User doesn't have access
+    }
+    console.error('Error validating project access:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    return false;
+  }
+};
+
+export const trackProjectView = async (projectId: number) => {
+  try {
+    const response = await api.post(`/api/projects/${projectId}/view`);
+    return response.data;
+  } catch (error: any) {
+    // Non-critical function, just log the error
+    console.error('Error tracking project view:', {
+      message: error.message,
+      status: error.response?.status
+    });
+  }
+};
+
+export const getRecentlyViewedProjects = async (limit: number = 5) => {
+  try {
+    const response = await api.get(`/api/user/projects/recent?limit=${limit}`);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching recently viewed projects:', {
+      message: error.message,
+      status: error.response?.status
+    });
+    return [];
   }
 };

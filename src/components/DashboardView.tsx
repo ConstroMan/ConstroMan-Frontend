@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Responsive, WidthProvider } from 'react-grid-layout';
 import { useTheme } from '../contexts/ThemeContext';
 import { X, Plus, Minus, ChevronLeft, ChevronRight, Download, MoreVertical, Pin, Menu } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, AnimateSharedLayout } from 'framer-motion';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import './gridLayoutTheme.css';
@@ -39,7 +39,7 @@ const ResponsiveGridLayout = WidthProvider(Responsive) as unknown as React.Compo
 
 type Dashboard = {
   Name: string;
-  Type: 'LineChart' | 'BarChart' | 'PieChart' | 'DonutChart' | 'ScatterPlot' | 'Histogram' | 'Table' | 'DoubleBarChart' | 'DualColorLineChart';
+  Type: 'LineChart' | 'BarChart' | 'PieChart' | 'DonutChart' | 'ScatterPlot' | 'Histogram' | 'Table' | 'DoubleBarChart' | 'DualColorLineChart' | 'DualLineChart';
   X_axis_label: string;
   Y_axis_label: string;
   X_axis_data: string[] | number[];
@@ -781,6 +781,51 @@ export default function DashboardView({
     }
   };
 
+  // Animations for tab content
+  const tabVariants = {
+    hidden: { opacity: 0, x: -20 },
+    visible: { opacity: 1, x: 0, transition: { duration: 0.3, ease: "easeOut" } },
+    exit: { opacity: 0, x: 20, transition: { duration: 0.2 } }
+  };
+
+  // Add animations for chart selection
+  const chartItemVariants = {
+    initial: { scale: 1 },
+    selected: { 
+      scale: 1.02,
+      transition: { type: "spring", stiffness: 400, damping: 25 }
+    },
+    hover: { 
+      scale: 1.01,
+      boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+      transition: { type: "spring", stiffness: 400, damping: 25 }
+    }
+  };
+
+  // Add staggered animation for dashboard charts
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const chartVariants = {
+    hidden: { y: 20, opacity: 0 },
+    show: { 
+      y: 0, 
+      opacity: 1,
+      transition: {
+        type: "spring",
+        stiffness: 300,
+        damping: 25
+      }
+    }
+  };
+
   return (
     <motion.div 
       initial={{ 
@@ -825,244 +870,307 @@ export default function DashboardView({
             }`}
           >
             <div className="h-full overflow-hidden flex flex-col">
-              {/* Tab switcher */}
+              {/* Tab switcher - enhance with underline animation */}
               <div className={`flex border-b ${
                 currentTheme === 'light' ? 'border-gray-200' : 'border-gray-800'
               }`}>
                 <button
                   onClick={() => setActiveTab('available')}
-                  className={`flex-1 p-4 text-center font-medium ${
+                  className={`relative flex-1 p-4 text-center font-medium transition-colors ${
                     activeTab === 'available'
                       ? currentTheme === 'light'
-                        ? 'border-b-2 border-blue-500 text-blue-600'
-                        : 'border-b-2 border-blue-400 text-blue-400'
+                        ? 'text-blue-600'
+                        : 'text-blue-400'
                       : currentTheme === 'light'
-                        ? 'text-gray-500'
-                        : 'text-gray-400'
+                        ? 'text-gray-500 hover:text-gray-700'
+                        : 'text-gray-400 hover:text-gray-300'
                   }`}
                 >
                   Current
+                  {activeTab === 'available' && (
+                    <motion.div 
+                      className={`absolute bottom-0 left-0 w-full h-0.5 ${
+                        currentTheme === 'light' ? 'bg-blue-500' : 'bg-blue-400'
+                      }`}
+                      layoutId="tabIndicator"
+                    />
+                  )}
                 </button>
                 <button
                   onClick={() => setActiveTab('saved')}
-                  className={`flex-1 p-4 text-center font-medium ${
+                  className={`relative flex-1 p-4 text-center font-medium transition-colors ${
                     activeTab === 'saved'
                       ? currentTheme === 'light'
-                        ? 'border-b-2 border-blue-500 text-blue-600'
-                        : 'border-b-2 border-blue-400 text-blue-400'
+                        ? 'text-blue-600'
+                        : 'text-blue-400'
                       : currentTheme === 'light'
-                        ? 'text-gray-500'
-                        : 'text-gray-400'
+                        ? 'text-gray-500 hover:text-gray-700'
+                        : 'text-gray-400 hover:text-gray-300'
                   }`}
                 >
                   Saved
+                  {activeTab === 'saved' && (
+                    <motion.div 
+                      className={`absolute bottom-0 left-0 w-full h-0.5 ${
+                        currentTheme === 'light' ? 'bg-blue-500' : 'bg-blue-400'
+                      }`}
+                      layoutId="tabIndicator"
+                    />
+                  )}
                 </button>
               </div>
 
-              <div className="p-2 overflow-y-auto flex-1">
-                {activeTab === 'available' ? (
-                  // Available charts list
-                  availableDashboards.map((item, index) => (
-                    <div
-                      key={item.dashboardData.Name}
-                      onClick={() => toggleDashboardSelection(index)}
-                      className={`flex items-center gap-2 p-3 rounded-md cursor-pointer mb-2 transition-colors ${
-                        selectedDashboards[index].selected
-                          ? currentTheme === 'light'
-                            ? 'bg-blue-50 border border-blue-200'
-                            : 'bg-blue-900/20 border border-blue-800'
-                          : currentTheme === 'light'
-                            ? 'hover:bg-gray-100'
-                            : 'hover:bg-gray-800'
-                      }`}
+              <div className="p-2 overflow-y-auto flex-1 relative">
+                <AnimatePresence mode="wait">
+                  {activeTab === 'available' ? (
+                    <motion.div
+                      key="available-charts"
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      variants={tabVariants}
+                      className="absolute inset-0 p-2 overflow-y-auto"
                     >
-                      <div className={`p-1.5 rounded ${
-                        selectedDashboards[index].selected
-                          ? currentTheme === 'light'
-                            ? 'bg-blue-100'
-                            : 'bg-blue-900/30'
-                          : currentTheme === 'light'
-                            ? 'bg-gray-100'
-                            : 'bg-gray-800'
-                      }`}>
-                        {selectedDashboards[index].selected ? (
-                          <Minus className={`w-4 h-4 ${
-                            currentTheme === 'light'
-                              ? 'text-blue-600'
-                              : 'text-blue-400'
-                          }`} />
-                        ) : (
-                          <Plus className={`w-4 h-4 ${
-                            currentTheme === 'light'
-                              ? 'text-gray-600'
-                              : 'text-gray-400'
-                          }`} />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-medium break-words ${
-                          currentTheme === 'light'
-                            ? 'text-gray-900'
-                            : 'text-gray-100'
-                        }`}>
-                          {item.dashboardData.Name}
-                        </p>
-                        <p className={`text-sm break-words whitespace-normal ${
-                          currentTheme === 'light'
-                            ? 'text-gray-500'
-                            : 'text-gray-400'
-                        }`}>
-                          {item.query}
-                        </p>
-                      </div>
-                      {/* Move dropdown menu outside the clickable area */}
-                      <div className="relative" onClick={e => e.stopPropagation()}>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenDropdownId(openDropdownId === index ? null : index);
-                          }}
-                          className={`p-2 rounded-lg ${
-                            currentTheme === 'light'
-                              ? 'hover:bg-gray-200 text-gray-600'
-                              : 'hover:bg-gray-700 text-gray-200'
+                      {/* Available charts list with enhanced animations */}
+                      {availableDashboards.map((item, index) => (
+                        <motion.div
+                          key={item.dashboardData.Name}
+                          onClick={() => toggleDashboardSelection(index)}
+                          initial="initial"
+                          animate={selectedDashboards[index].selected ? "selected" : "initial"}
+                          whileHover="hover"
+                          variants={chartItemVariants}
+                          className={`flex items-center gap-2 p-3 rounded-md cursor-pointer mb-2 transition-colors ${
+                            selectedDashboards[index].selected
+                              ? currentTheme === 'light'
+                                ? 'bg-blue-50 border border-blue-200 shadow-sm'
+                                : 'bg-blue-900/20 border border-blue-800 shadow-md'
+                              : currentTheme === 'light'
+                                ? 'hover:bg-gray-100 border border-transparent'
+                                : 'hover:bg-gray-800 border border-transparent'
                           }`}
                         >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                        {openDropdownId === index && (
-                          <div 
-                            className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg ${
-                              currentTheme === 'light'
-                                ? 'bg-white'
-                                : 'bg-gray-800'
-                            } ring-1 ring-black ring-opacity-5 z-10`}
+                          <motion.div 
+                            className={`p-1.5 rounded ${
+                              selectedDashboards[index].selected
+                                ? currentTheme === 'light'
+                                  ? 'bg-blue-100'
+                                  : 'bg-blue-900/30'
+                                : currentTheme === 'light'
+                                  ? 'bg-gray-100'
+                                  : 'bg-gray-800'
+                            }`}
+                            whileTap={{ scale: 0.9 }}
                           >
-                            <div className="py-1">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSaveChart(item);
-                                  setOpenDropdownId(null);
-                                }}
-                                className={`block px-4 py-2 text-sm w-full text-left ${
-                                  currentTheme === 'light'
-                                    ? 'text-gray-700 hover:bg-gray-100'
-                                    : 'text-gray-200 hover:bg-gray-700'
-                                }`}
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDownloadChart(item);
-                                  setOpenDropdownId(null);
-                                }}
-                                className={`block px-4 py-2 text-sm w-full text-left ${
-                                  currentTheme === 'light'
-                                    ? 'text-gray-700 hover:bg-gray-100'
-                                    : 'text-gray-200 hover:bg-gray-700'
-                                }`}
-                              >
-                                Download
-                              </button>
-                            </div>
+                            {selectedDashboards[index].selected ? (
+                              <Minus className={`w-4 h-4 ${
+                                currentTheme === 'light'
+                                  ? 'text-blue-600'
+                                  : 'text-blue-400'
+                              }`} />
+                            ) : (
+                              <Plus className={`w-4 h-4 ${
+                                currentTheme === 'light'
+                                  ? 'text-gray-600'
+                                  : 'text-gray-400'
+                              }`} />
+                            )}
+                          </motion.div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-medium break-words ${
+                              currentTheme === 'light'
+                                ? 'text-gray-900'
+                                : 'text-gray-100'
+                            }`}>
+                              {item.dashboardData.Name}
+                            </p>
+                            <p className={`text-sm break-words whitespace-normal ${
+                              currentTheme === 'light'
+                                ? 'text-gray-500'
+                                : 'text-gray-400'
+                            }`}>
+                              {item.query}
+                            </p>
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  // Saved charts list
-                  savedCharts.map((chart) => (
-                    <div
-                      key={chart.id}
-                      onClick={() => toggleSavedChartSelection(chart)}
-                      className={`flex items-center gap-2 p-3 rounded-md cursor-pointer mb-2 transition-colors ${
-                        getActiveTab().selectedCharts.some(c => c.id === chart.id)
-                          ? currentTheme === 'light'
-                            ? 'bg-blue-50 border border-blue-200'
-                            : 'bg-blue-900/20 border border-blue-800'
-                          : currentTheme === 'light'
-                            ? 'hover:bg-gray-100'
-                            : 'hover:bg-gray-800'
-                      }`}
+                          {/* Dropdown menu with animations */}
+                          <div className="relative" onClick={e => e.stopPropagation()}>
+                            <motion.button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenDropdownId(openDropdownId === index ? null : index);
+                              }}
+                              className={`p-2 rounded-lg ${
+                                currentTheme === 'light'
+                                  ? 'hover:bg-gray-200 text-gray-600'
+                                  : 'hover:bg-gray-700 text-gray-200'
+                              }`}
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.95 }}
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </motion.button>
+                            <AnimatePresence>
+                              {openDropdownId === index && (
+                                <motion.div 
+                                  initial={{ opacity: 0, y: -5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: -5 }}
+                                  transition={{ duration: 0.2 }}
+                                  className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg ${
+                                    currentTheme === 'light'
+                                      ? 'bg-white'
+                                      : 'bg-gray-800'
+                                  } ring-1 ring-black ring-opacity-5 z-10`}
+                                >
+                                  <div className="py-1">
+                                    {/* Menu items */}
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleSaveChart(item);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className={`block px-4 py-2 text-sm w-full text-left ${
+                                        currentTheme === 'light'
+                                          ? 'text-gray-700 hover:bg-gray-100'
+                                          : 'text-gray-200 hover:bg-gray-700'
+                                      }`}
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDownloadChart(item);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className={`block px-4 py-2 text-sm w-full text-left ${
+                                        currentTheme === 'light'
+                                          ? 'text-gray-700 hover:bg-gray-100'
+                                          : 'text-gray-200 hover:bg-gray-700'
+                                      }`}
+                                    >
+                                      Download
+                                    </button>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="saved-charts"
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      variants={tabVariants}
+                      className="absolute inset-0 p-2 overflow-y-auto"
                     >
-                      <div className={`p-1.5 rounded ${
-                        getActiveTab().selectedCharts.some(c => c.id === chart.id)
-                          ? currentTheme === 'light'
-                            ? 'bg-blue-100'
-                            : 'bg-blue-900/30'
-                          : currentTheme === 'light'
-                            ? 'bg-gray-100'
-                            : 'bg-gray-800'
-                      }`}>
-                        {getActiveTab().selectedCharts.some(c => c.id === chart.id) ? (
-                          <Minus className={`w-4 h-4 ${
-                            currentTheme === 'light'
-                              ? 'text-blue-600'
-                              : 'text-blue-400'
-                          }`} />
-                        ) : (
-                          <Plus className={`w-4 h-4 ${
-                            currentTheme === 'light'
-                              ? 'text-gray-600'
-                              : 'text-gray-400'
-                          }`} />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-medium break-words ${
-                          currentTheme === 'light'
-                            ? 'text-gray-900'
-                            : 'text-gray-100'
-                        }`}>
-                          {chart.name}
-                        </p>
-                        <p className={`text-sm break-words whitespace-normal ${
-                          currentTheme === 'light'
-                            ? 'text-gray-500'
-                            : 'text-gray-400'
-                        }`}>
-                          {chart.query}
-                        </p>
-                      </div>
-                      <button
-                        onClick={(e) => handleTogglePin(e, chart)}
-                        className={`p-1.5 rounded-full transition-colors ${
-                          pinnedCharts.includes(chart.id)
-                            ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400' 
-                            : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
-                        }`}
-                        title={pinnedCharts.includes(chart.id) ? "Unpin from dashboard" : "Pin to dashboard"}
-                      >
-                        <Pin 
-                          className={`w-4 h-4 ${
-                            pinnedCharts.includes(chart.id)
-                              ? 'fill-current stroke-2' 
-                              : 'stroke-[1.5px]'
+                      {/* Saved charts list with enhanced animations */}
+                      {savedCharts.map((chart) => (
+                        <motion.div
+                          key={chart.id}
+                          onClick={() => toggleSavedChartSelection(chart)}
+                          initial="initial"
+                          animate={getActiveTab().selectedCharts.some(c => c.id === chart.id) ? "selected" : "initial"}
+                          whileHover="hover"
+                          variants={chartItemVariants}
+                          className={`flex items-center gap-2 p-3 rounded-md cursor-pointer mb-2 transition-colors ${
+                            getActiveTab().selectedCharts.some(c => c.id === chart.id)
+                              ? currentTheme === 'light'
+                                ? 'bg-blue-50 border border-blue-200 shadow-sm'
+                                : 'bg-blue-900/20 border border-blue-800 shadow-md'
+                              : currentTheme === 'light'
+                                ? 'hover:bg-gray-100 border border-transparent'
+                                : 'hover:bg-gray-800 border border-transparent'
                           }`}
-                        />
-                      </button>
-                    </div>
-                  ))
-                )}
+                        >
+                          <motion.div 
+                            className={`p-1.5 rounded ${
+                              getActiveTab().selectedCharts.some(c => c.id === chart.id)
+                                ? currentTheme === 'light'
+                                  ? 'bg-blue-100'
+                                  : 'bg-blue-900/30'
+                                : currentTheme === 'light'
+                                  ? 'bg-gray-100'
+                                  : 'bg-gray-800'
+                            }`}
+                            whileTap={{ scale: 0.9 }}
+                          >
+                            {getActiveTab().selectedCharts.some(c => c.id === chart.id) ? (
+                              <Minus className={`w-4 h-4 ${
+                                currentTheme === 'light'
+                                  ? 'text-blue-600'
+                                  : 'text-blue-400'
+                              }`} />
+                            ) : (
+                              <Plus className={`w-4 h-4 ${
+                                currentTheme === 'light'
+                                  ? 'text-gray-600'
+                                  : 'text-gray-400'
+                              }`} />
+                            )}
+                          </motion.div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-medium break-words ${
+                              currentTheme === 'light'
+                                ? 'text-gray-900'
+                                : 'text-gray-100'
+                            }`}>
+                              {chart.name}
+                            </p>
+                            <p className={`text-sm break-words whitespace-normal ${
+                              currentTheme === 'light'
+                                ? 'text-gray-500'
+                                : 'text-gray-400'
+                            }`}>
+                              {chart.query}
+                            </p>
+                          </div>
+                          <motion.button
+                            onClick={(e) => handleTogglePin(e, chart)}
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            className={`p-1.5 rounded-full transition-colors ${
+                              pinnedCharts.includes(chart.id)
+                                ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400' 
+                                : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                            }`}
+                            title={pinnedCharts.includes(chart.id) ? "Unpin from dashboard" : "Pin to dashboard"}
+                          >
+                            <Pin 
+                              className={`w-4 h-4 ${
+                                pinnedCharts.includes(chart.id)
+                                  ? 'fill-current stroke-2' 
+                                  : 'stroke-[1.5px]'
+                              }`}
+                            />
+                          </motion.button>
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </motion.div>
 
           {/* Main dashboard area */}
           <div className="flex-1 flex flex-col h-full">
-            {/* Header */}
+            {/* Header with improved UI */}
             <div className={`p-4 border-b flex items-center justify-between ${
               currentTheme === 'light'
                 ? 'border-gray-200'
                 : 'border-gray-800'
             }`}>
               <div className="flex items-center gap-2">
-                <button
+                <motion.button
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   className={`p-2 rounded-lg transition-colors ${
                     currentTheme === 'light'
                       ? 'hover:bg-gray-100 text-gray-600'
@@ -1070,7 +1178,7 @@ export default function DashboardView({
                   }`}
                 >
                   {isSidebarOpen ? <ChevronLeft /> : <ChevronRight />}
-                </button>
+                </motion.button>
                 <h2 className={`font-semibold ${
                   currentTheme === 'light'
                     ? 'text-gray-900'
@@ -1079,75 +1187,97 @@ export default function DashboardView({
               </div>
               
               <div className="flex items-center gap-2">
-                {/* Add Layout Menu */}
+                {/* Layout Menu with improved UI */}
                 <div className="relative flex items-center gap-2">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => setIsLayoutMenuOpen(!isLayoutMenuOpen)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors shadow-lg ${
-                      currentTheme === 'light' 
-                        ? 'bg-teal/80 text-white hover:bg-teal-700' 
-                        : 'bg-[#2A2A2A]/80 text-gray-200 hover:bg-[#2A2A2A] border-gray-800'
-                    }`}
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <Menu className="w-4 h-4" />
-                    Layouts
-                  </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => setIsLayoutMenuOpen(!isLayoutMenuOpen)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors shadow-lg ${
+                        currentTheme === 'light' 
+                          ? 'bg-teal/80 text-white hover:bg-teal-700' 
+                          : 'bg-[#2A2A2A]/80 text-gray-200 hover:bg-[#2A2A2A] border-gray-800'
+                      }`}
+                    >
+                      <Menu className="w-4 h-4" />
+                      Layouts
+                    </Button>
+                  </motion.div>
                   
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={downloadLayoutAsPDF}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors shadow-lg ${
-                      currentTheme === 'light' 
-                        ? 'bg-teal/80 text-white hover:bg-teal-700' 
-                        : 'bg-[#2A2A2A]/80 text-gray-200 hover:bg-[#2A2A2A] border-gray-800'
-                    }`}
-                    title="Download Layout as PDF"
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <Download className="w-4 h-4" />
-                    Download PDF
-                  </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={downloadLayoutAsPDF}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors shadow-lg ${
+                        currentTheme === 'light' 
+                          ? 'bg-teal/80 text-white hover:bg-teal-700' 
+                          : 'bg-[#2A2A2A]/80 text-gray-200 hover:bg-[#2A2A2A] border-gray-800'
+                      }`}
+                      title="Download Layout as PDF"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download PDF
+                    </Button>
+                  </motion.div>
                   
-                  {isLayoutMenuOpen && (
-                    <div className={`absolute right-0 mt-2 w-56 rounded-md shadow-lg ${
-                      currentTheme === 'light' ? 'bg-white' : 'bg-gray-800'
-                    } ring-1 ring-black ring-opacity-5 z-10 top-full`}>
-                      <div className="py-1">
-                        <button
-                          onClick={() => {
-                            setIsLayoutMenuOpen(false);
-                            setIsSaveLayoutOpen(true);
-                          }}
-                          className={`block px-4 py-2 text-sm w-full text-left ${
-                            currentTheme === 'light'
-                              ? 'text-gray-700 hover:bg-gray-100'
-                              : 'text-gray-200 hover:bg-gray-700'
-                          }`}
-                        >
-                          Save Current Layout
-                        </button>
-                        <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
-                        {savedLayouts.map((layout) => (
-                          <button
-                            key={layout.id}
-                            onClick={() => layout.id && handleLayoutMenuItemClick(layout.id)}
+                  <AnimatePresence>
+                    {isLayoutMenuOpen && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        className={`absolute right-0 mt-2 w-56 rounded-md shadow-lg ${
+                          currentTheme === 'light' ? 'bg-white' : 'bg-gray-800'
+                        } ring-1 ring-black ring-opacity-5 z-10 top-full`}
+                      >
+                        <div className="py-1">
+                          <motion.button
+                            whileHover={{ backgroundColor: currentTheme === 'light' ? '#F3F4F6' : '#374151' }}
+                            onClick={() => {
+                              setIsLayoutMenuOpen(false);
+                              setIsSaveLayoutOpen(true);
+                            }}
                             className={`block px-4 py-2 text-sm w-full text-left ${
                               currentTheme === 'light'
-                                ? 'text-gray-700 hover:bg-gray-100'
-                                : 'text-gray-200 hover:bg-gray-700'
+                                ? 'text-gray-700'
+                                : 'text-gray-200'
                             }`}
                           >
-                            {layout.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                            Save Current Layout
+                          </motion.button>
+                          <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+                          {savedLayouts.map((layout) => (
+                            <motion.button
+                              key={layout.id}
+                              whileHover={{ backgroundColor: currentTheme === 'light' ? '#F3F4F6' : '#374151' }}
+                              onClick={() => layout.id && handleLayoutMenuItemClick(layout.id)}
+                              className={`block px-4 py-2 text-sm w-full text-left ${
+                                currentTheme === 'light'
+                                  ? 'text-gray-700'
+                                  : 'text-gray-200'
+                              }`}
+                            >
+                              {layout.name}
+                            </motion.button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
                 
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.1, rotate: 90 }}
+                  whileTap={{ scale: 0.9 }}
                   onClick={onClose}
                   className={`p-2 rounded-full transition-colors ${
                     currentTheme === 'light'
@@ -1156,11 +1286,11 @@ export default function DashboardView({
                   }`}
                 >
                   <X className="w-5 h-5" />
-                </button>
+                </motion.button>
               </div>
             </div>
 
-            {/* Tabs for layouts */}
+            {/* Tabs for layouts with improved UI */}
             <div className={`flex items-center gap-1 border-b overflow-x-auto ${
               currentTheme === 'light' ? 'border-gray-200' : 'border-gray-800'
             }`}>
@@ -1192,41 +1322,52 @@ export default function DashboardView({
                         autoFocus
                       />
                     ) : (
-                      <button
+                      <motion.button
+                        whileHover={{ backgroundColor: activeTabId === tab.id 
+                          ? currentTheme === 'light' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.15)' 
+                          : currentTheme === 'light' ? 'rgba(229, 231, 235, 0.8)' : 'rgba(55, 65, 81, 0.5)'
+                        }}
                         onClick={() => switchTab(tab.id)}
                         onDoubleClick={() => startTabEdit(tab.id)}
                         className={`px-4 py-2 text-sm font-medium transition-colors rounded-lg flex items-center justify-between ${
                           activeTabId === tab.id
                             ? currentTheme === 'light'
                               ? 'bg-blue-100 text-blue-600'
-                              : 'bg-blue-900 text-blue-400'
+                              : 'bg-blue-900/30 text-blue-400'
                             : currentTheme === 'light'
-                            ? 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                            : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                            ? 'text-gray-600 hover:text-gray-900'
+                            : 'text-gray-400 hover:text-gray-200'
                         }`}
                       >
                         {tab.name}
                         {/* Only show close button if not default tab */}
                         {tab.id !== 'default' && (
-                          <X
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleTabClose(tab.id);
-                            }}
-                            className={`ml-2 w-3 h-3 transition-colors ${
-                              currentTheme === 'light'
-                                ? 'hover:text-gray-600'
-                                : 'hover:text-gray-300'
-                            }`}
-                          />
+                          <motion.div
+                            whileHover={{ scale: 1.2 }}
+                            whileTap={{ scale: 0.9 }}
+                          >
+                            <X
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTabClose(tab.id);
+                              }}
+                              className={`ml-2 w-3 h-3 transition-colors ${
+                                currentTheme === 'light'
+                                  ? 'hover:text-gray-600'
+                                  : 'hover:text-gray-300'
+                              }`}
+                            />
+                          </motion.div>
                         )}
-                      </button>
+                      </motion.button>
                     )}
                   </div>
                 ))}
               </div>
 
-              <button
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={addNewTab}
                 className={`flex items-center gap-1 px-4 py-2 text-sm font-medium transition-colors rounded-lg ${
                   currentTheme === 'light'
@@ -1236,10 +1377,10 @@ export default function DashboardView({
               >
                 <Plus className="w-4 h-4" />
                 New Tab
-              </button>
+              </motion.button>
             </div>
 
-            {/* Charts grid */}
+            {/* Charts grid with improved animations */}
             <div className="flex-1 overflow-auto p-4" ref={gridRef}>
               <ResponsiveGridLayout
                 className="layout"

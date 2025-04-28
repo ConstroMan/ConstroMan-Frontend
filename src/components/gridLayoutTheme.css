@@ -315,4 +315,137 @@
   top: 0;
   left: 0;
   z-index: 1;
+}
+
+/* Add dark theme styles for grid layout */
+.react-grid-layout {
+  background: transparent;
+}
+
+/* Light mode */
+:root {
+  --grid-bg-color: rgba(229, 231, 235, 0.5);
+  --grid-item-bg: white;
+  --grid-border: #e5e7eb;
+  --grid-shadow: rgba(0, 0, 0, 0.05);
+}
+
+/* Dark mode */
+.dark {
+  --grid-bg-color: rgba(31, 41, 55, 0.5);
+  --grid-item-bg: #1e1e1e;
+  --grid-border: #374151;
+  --grid-shadow: rgba(0, 0, 0, 0.2);
+}
+
+/* Common styles */
+.react-grid-item {
+  border: 1px solid var(--grid-border);
+  background-color: var(--grid-item-bg);
+  box-shadow: 0 2px 4px var(--grid-shadow);
+  border-radius: 0.5rem;
+  transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+}
+
+.react-grid-item:hover {
+  box-shadow: 0 4px 8px var(--grid-shadow);
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: rgba(15, 118, 110, 0.3);
+  border: 1px dashed rgba(15, 118, 110, 0.6);
+  opacity: 0.7;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+}
+
+.react-draggable-dragging {
+  z-index: 10;
+  opacity: 0.8;
+}
+
+.react-resizable-handle {
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+
+.react-grid-item:hover .react-resizable-handle {
+  opacity: 0.8;
+}
+
+/* Add animation keyframes */
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+/* Ensure charts are properly sized in the grid */
+.chart-wrapper {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.chart-wrapper > div {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Make sure the canvas is properly sized */
+.chart-wrapper canvas {
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+/* Fix chart dimensions */
+#chart-container {
+  width: 100% !important;
+  height: 100% !important;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Override any max-width/height constraints */
+.react-grid-item > div {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.react-grid-item > div > div {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+/* Fix table dimensions */
+.table-container {
+  height: 100%;
+  overflow: auto;
+}
+
+/* Add animation keyframes */
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
 } 
