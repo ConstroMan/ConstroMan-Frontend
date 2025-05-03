@@ -397,6 +397,11 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
         borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
         borderWidth: 1
       }
+    },
+    layout: {
+      padding: {
+        top: 30
+      }
     }
   }), [dimensions, isResizing, isDarkMode, chartColors]);
 
@@ -578,8 +583,8 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
                       plugins: {
                         ...chartOptions.plugins,
                         legend: {
-                          position: 'top' as const,
-                          align: 'start' as const,
+                          position: 'bottom' as const,
+                          align: 'center' as const,
                           labels: {
                             boxWidth: 12,
                             usePointStyle: true,
@@ -732,7 +737,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
                           categoryPercentage: 0.7
                         },
                         {
-                          label: dashboard.Y_axis_label + ' Secondary',
+                          label: dashboard.Y_axis_label_secondary,
                           data: dashboard.Y_axis_data_secondary,
                           backgroundColor: chartColors.doubleBar.secondary.background,
                           borderColor: chartColors.doubleBar.secondary.border,
@@ -774,8 +779,8 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
                       plugins: {
                         ...chartOptions.plugins,
                         legend: {
-                          position: 'top' as const,
-                          align: 'start' as const,
+                          position: 'bottom' as const,
+                          align: 'center' as const,
                           labels: {
                             boxWidth: 12,
                             usePointStyle: true,
@@ -856,7 +861,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
                       labels: dashboard.X_axis_data.map(String),
                       datasets: [
                         {
-                          label: 'Cumulative Probable P2 Budgeted Cost',
+                          label: dashboard.Y_axis_label,
                           data: dashboard.Y_axis_data,
                           borderColor: isDarkMode ? 'rgb(94, 234, 212)' : 'rgb(13, 148, 136)',
                           backgroundColor: (context) => {
@@ -880,7 +885,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
                           pointHoverRadius: 6,
                         },
                         {
-                          label: 'Cumulative Actual Cost',
+                          label: dashboard.Y_axis_label_secondary,
                           data: dashboard.Y_axis_data_secondary,
                           borderColor: isDarkMode ? 'rgb(244, 63, 94)' : 'rgb(225, 29, 72)',
                           backgroundColor: (context) => {
